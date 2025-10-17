@@ -391,7 +391,30 @@ def load_application_data(file_path):
 
     # TODO: see if need to combine school cities
     # TODO: what to do with NaN for school country
-    print(set(df['School 2 Institution']))
+
+    # TODO: Fuzzy wuzzy on school 2
+
+    # Merge School 2 Languagaes
+    df['School 2 Language of Instruction'] = df['School 2 Language of Instruction'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
+    df['School 2 Language of Instruction'] = df['School 2 Language of Instruction'].replace(to_replace=r'^[A-Za-z\_\-\(\) ]*Farsi\)*$', value='Persian', regex=True)
+    df['School 2 Language of Instruction'] = df['School 2 Language of Instruction'].fillna(0)
+    
+    df = df.drop(['School 1 Field', 'School 1 Honors', 'School 1 Awards', 'School 1 Hours', 'School 1 Class Rank (X out of Y)', 'School 1 Major 1', 'School 1 Major 2', 'School 1 Minor',
+    'School 1 Website','School 2 Field', 'School 2 Class Rank (X out of Y)', 'School 2 Major 1', 'School 2 Major 2', 'School 2 Minor',
+    'School 2 Honors', 'School 2 Awards', 'School 2 Hours', 'School 2 Website',
+    'School 3 Field', 'School 3 Class Rank (X out of Y)', 'School 3 Major 1', 'School 3 Major 2',
+    'School 3 Minor', 'School 3 Honors'], axis=1)
+
+    # Leaving out school x created and updated timestamps bc it overcomplicates model currently
+    # but could potentially show how long they worked on their application
+
+    # School 3 Data Cleaning
+    df['School 3 Type'] = df['School 3 Type'].fillna(0)
+    
+    # Merge School 3 Language of Instruction
+    df['School 3 Language of Instruction'] = df['School 3 Language of Instruction'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
+    df['School 3 Language of Instruction'] = df['School 3 Language of Instruction'].fillna(0)
+    # print(set(df['School 3 Honors']))
 
     # Iterate through all applicants in Excel file
     for idx, row in df.iterrows():
