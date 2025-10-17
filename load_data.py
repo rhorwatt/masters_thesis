@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
 from collections import defaultdict
+from sklearn.preprocessing import OneHotEncoder
 
 # Dataclasses for parsing application data
 @dataclass
@@ -315,21 +316,85 @@ def load_application_data(file_path):
                          'Summer 2024': 5
                         }
 
+    # Cleaning NaN values
+    # Will do one hot encoding later
+    df['App - Citizenship Status'] = df['App - Citizenship Status'].fillna('None of the Above')
+    df['State or County of Residence'] = df['State or County of Residence'].fillna(0)
+    df['Active Country'] = df['Active Country'].fillna(0)
+    df['App - Program Choice'] = df['App - Program Choice'].fillna(0)
+    df['App - ECE Area of Interest 1'] = df['App - ECE Area of Interest 1'].fillna(0)
+    df['App - ECE Area of Interest 2'] = df['App - ECE Area of Interest 2'].fillna(0)
+    df['School 1 Language of Instruction']= df['School 1 Language of Instruction'].fillna(0)
+
+    # Drop applications with no degree objective listed
+    df = df.dropna(subset = ['App - ECE Degree Objective'])
+
+    # Drop PhD only applications
+    df = df[~df['App - ECE Degree Objective'].str.startswith("Ph.D.", na=False)]
+    df = df[~df['App - ECE Degree Objective'].str.startswith("Direct Ph.D.", na=False)]
+
+    # Drop incomplete applications
+    df = df.dropna(subset = ['Decision History (all decisions)'])
+    df = df[~df['Decision History (all decisions)'].str.startswith("Awaiting", na=False)]
+
+    # Drop withdrawn / cancelled applications
+    df = df[~df['Decision History (all decisions)'].str.startswith("Withdraw", na=False)]
+
+    # Replace Application Expired with Rejection
+    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace('Application Expired', 'Denied')
+
+    # Merge Decision History Categories
+    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace('Admitted, Change of Term', 'Admitted, Enrollment Accepted, Change of Term')
+    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace('Enrollment Declined', 'Admitted, Enrollment Declined')
+    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace(to_replace=r'^[A-Za-z\_\-, ]*Enrollment Declined$', value='Enrollment Declined', regex=True)
+    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace('Admitted, Deferred Admission', 'Admitted, Enrollment Accepted, Deferred Admission')
+
+    # Drop people who said they were 0, 5, 6 years old (3 entries)
+    df = df[df['Age'] >= 18]
+
+    # Merge all Professional Masters mentioning in ECE Area Interest 1 & 2 into 1 category
+    df['App - ECE Area of Interest 1'] = df['App - ECE Area of Interest 1'].replace('Professional Masters – ECE Innovative Technologies', 'Professional Masters - Innovative Technologies')
+    df['App - ECE Area of Interest 2'] = df['App - ECE Area of Interest 2'].replace('Professional Masters – ECE Innovative Technologies', 'Professional Masters - Innovative Technologies')
+
+    # Merge repeats of schools
+    df['School 1 Institution'] = df['School 1 Institution'].str.lower()
+    df['School 1 Institution'] = df['School 1 Institution'].replace(to_replace=r'^[A-Za-z\- ]*purdue[A-Za-z\- \(\)\*\/]*$', value='purdue univ', regex=True)
+
+    # TODO: need to use fuzzywuzzy to categorize similar schools by branch campuses before encoding & maybe look at this again
+
+    # Merge repeat languages
+    df['School 1 Language of Instruction'] = df['School 1 Language of Instruction'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
+    df['School 1 Language of Instruction'] = df['School 1 Language of Instruction'].replace(to_replace=r'^[A-Za-z\_\-\(\) ]*Farsi\)*$', value='Persian', regex=True)
+
+    # Clean up school majors
+    df['School 1 Major'] = df['School 1 Major'].str.lower()
+    # TODO: Remove degree level (Bachelor, Master etc) from major bc already in separate variable
+        # some say bachelor at end, some at beginning or in () or after ,
+        # bs, bachelor's, bachelor of, master of 
+        # remove words "focus in"
+        # remove "graduate certificate"
+    # TODO: Group together similar degree names
+    # TODO: fix typo - noticed "compter engineering", "engineernig", "informatino"
+
+    # Fill NaN GPA's with 0 - they might not have school information
+    df['School 1 GPA'] = df['School 1 GPA'].fillna(0)
+
+    # TODO: fix NaN values for GPA scale
+
+    # Note School 1 Class Rank X out of Y column not listed for any applicants
+
+    # School 1 Degree NaN filled with 0, want to be separate category than no degree obtained bc this shows they have 0 school attendance which is slightly different
+    df['School 1 Degree'] = df['School 1 Degree'].fillna(0)
+
+    # Note: School x Confirmed category only useful for admitted & enrolled students
+    # TODO: Need to fill in converted GPA category once figure out NaN values for GPA scale
+
+    # TODO: see if need to combine school cities
+    # TODO: what to do with NaN for school country
+    print(set(df['School 2 Institution']))
+
     # Iterate through all applicants in Excel file
     for idx, row in df.iterrows():
-        semester.add(row['App - Applicant Term/Year'])
-        # Skip students who didn't finish their application
-        if (pd.isna(df.loc[idx, 'Decision History (all decisions)'])):
-            continue
-
-        # Skip PhD only applications
-        if (df.loc[idx, 'App - ECE Degree Objective'] == ("Direct Ph.D. (students without an MS)" or "Ph.D. (students with an MS)")):
-            continue
-
-        # Skip students who withdrew / cancelled their application
-        if (df.loc[idx, 'Decision History (all decisions)'] == "Withdraw/Cancelled"):
-            continue
-            
         # Create school list for applicant #idx
         applicant_idx_schools, num_schools_idx = create_school_list(idx, row, df)
 
@@ -349,7 +414,8 @@ def load_application_data(file_path):
                                          row['App - Citizenship Status'], 
                                          application_terms[row['App - Applicant Term/Year']], 
                                          row['App - Program Choice'],
-                                         [row['App - ECE Area of Interest 1'], row['App - ECE Area of Interest 2']], 
+                                         [row['App - ECE Area of Interest 1'], 
+                                         row['App - ECE Area of Interest 2']], 
                                          row['Application Status'], 
                                          row['Decision History (all decisions)'],
                                          applicant_idx_schools, 
@@ -374,14 +440,16 @@ def load_application_data(file_path):
         elif (decision in rejected):
             rejected_list[app_id] = applicant_idx
 
-    print(f"""Number of Total Applications: {len(all_applications)}\nNumber of Admitted Students: {len(admit_list)}\nNumber of Rejected Students: {len(rejected_list)}\n
-    Number of Attending Students: {len(accepted_list)}""")
+    # print(f"""Number of Total Applications: {len(all_applications)}\nNumber of Admitted Students: {len(admit_list)}\nNumber of Rejected Students: {len(rejected_list)}\n
+    # Number of Attending Students: {len(accepted_list)}""")
 
     return all_applications, admit_list, accepted_list, rejected_list, app_to_puid
 
 if __name__ == '__main__':
     _, _, _, _, _ = load_application_data("data/app_data/Fall20thru24_MSECEOnline_All.xlsx")
 
+    df = pd.read_excel("data/app_data/Fall20thru24_MSECEOnline_All.xlsx")
+    schools = set(df['School 1 Institution']) # come back to this
     # TODO: Following data is categorical still for each 
     # location: Optional[Location] = None
     # citizen: Optional[str] = None
@@ -389,7 +457,7 @@ if __name__ == '__main__':
     # app_areas: List[str] = field(default_factory=list)
     # app_status: Optional[str] = None
     # decision: Optional[str] = None
-    # schools: List[School] = None
+    # schools: List[School] = None - Make all schools the same
     # jobs: List[Job] = None
 
     # start: Optional[pd.Timestamp] = None
