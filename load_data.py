@@ -14,10 +14,12 @@ class Location:
 
     Attributes:
     city (str):    City for job applicant worked at; NaN / None for applicant's address and school
-    region (str):  State or County (if lives in Indiana) of applicant's address; State / region of school applicant attended; State / region of job applicant worked at
+    state (str):   State of applicant's address; State of school applicant attended; State of job applicant worked at
+    region (str):  Region of applicant's address; Region of school applicant attended; Region of job applicant worked at
     country (str): Country applicant lives in; country of school applicant attended; country of job applicant worked at
     """
     city: Optional[str] = None
+    state: Optional[str] = None
     region: Optional[str] = None
     country: Optional[str] = None
 
@@ -114,10 +116,6 @@ class Application_Data:
                                           Professional Masters - Innovative Technologies; 
                                           Professional Masters - ECE Innovative Technologies)
 
-        app_status (str):                 Application Status (Awaiting Payment, Awaiting Decision, Decision Released,
-                                          Awaiting Submission) - Note: Removing applicants with Awaiting Payment or
-                                          Awaiting Submission
-
         decision (str):                   Application Decision (Denied, Admitted, Withdraw / Cancelled or Application Expired) + the following
                                           applicant decisions if they were admitted (Enrollment Accepted, Enrollment Denied, Change of Term,
                                           Deferred Admission)
@@ -135,7 +133,6 @@ class Application_Data:
     sem: Optional[int] = None
     program: Optional[str] = None
     app_areas: List[str] = field(default_factory=list)
-    app_status: Optional[str] = None
     decision: Optional[str] = None
     schools: List[School] = None
     num_schools: Optional[int] = None
@@ -166,7 +163,7 @@ def create_school_list(idx, row, df):
 
         school_cols = ["School " + str_i + " Type", 
                        "School " + str_i + " Institution",
-                       "School " + str_i + " Language of Instruction", 
+                       "School " + str_i + " Language", 
                        "School " + str_i + " From", 
                        "School " + str_i + " To",
                        "School " + str_i + " Major", 
@@ -264,10 +261,10 @@ def load_application_data(file_path):
              Application information for all applicants who were admitted (including those who do not choose to attend)
              Application information for all applicants who were admitted and accepted their admission (includes those who deferred, changed terms, initially declied admission)
              Application information for all applicants who were rejected,
-             Dictionary mapping application ID to PUID for students who were admitted and accepted their admission
-    :rtype: dictionary{k:v where k = application ID, v = application information}, dictionary{k:v where k = application ID, v = application information}, 
-            dictionary{k:v where k = application ID, v = application information}, dictionary{k:v where k = application ID, v = application information}, 
-            dictionary{k:v where k = application ID, v = PUID}
+             Dictionary mapping App ID to PUID for students who were admitted and accepted their admission
+    :rtype: dictionary{k:v where k = App ID, v = application information}, dictionary{k:v where k = App ID, v = application information}, 
+            dictionary{k:v where k = App ID, v = application information}, dictionary{k:v where k = App ID, v = application information}, 
+            dictionary{k:v where k = App ID, v = PUID}
     """
     # Store application data for semesters Fall 2020 to Spring 2024
     df = pd.read_excel(file_path)
@@ -308,53 +305,122 @@ def load_application_data(file_path):
                 'Admitted, Enrollment Accepted, Deferred Admission'
                 }
 
-    application_terms = {'Fall 2020'  : 0,
-                         'Fall 2021'  : 1,
-                         'Fall 2022'  : 2,
-                         'Fall 2023'  : 3,
-                         'Fall 2024'  : 4,
-                         'Summer 2024': 5
-                        }
+    # Drop all columns full of NaN
+    df = df.dropna(axis=1, how='all')
 
-    # Cleaning NaN values
-    # Will do one hot encoding later
-    df['App - Citizenship Status'] = df['App - Citizenship Status'].fillna('None of the Above')
-    df['State or County of Residence'] = df['State or County of Residence'].fillna(0)
-    df['Active Country'] = df['Active Country'].fillna(0)
-    df['App - Program Choice'] = df['App - Program Choice'].fillna(0)
-    df['App - ECE Area of Interest 1'] = df['App - ECE Area of Interest 1'].fillna(0)
-    df['App - ECE Area of Interest 2'] = df['App - ECE Area of Interest 2'].fillna(0)
-    df['School 1 Language of Instruction']= df['School 1 Language of Instruction'].fillna(0)
+    # Drop School Code columns bc not useful
+    df = df[df.columns.drop(list(df.filter(regex=r'School [1-6] Code')))]
 
-    # Drop applications with no degree objective listed
-    df = df.dropna(subset = ['App - ECE Degree Objective'])
-
-    # Drop PhD only applications
-    df = df[~df['App - ECE Degree Objective'].str.startswith("Ph.D.", na=False)]
-    df = df[~df['App - ECE Degree Objective'].str.startswith("Direct Ph.D.", na=False)]
-
-    # Drop incomplete applications
-    df = df.dropna(subset = ['Decision History (all decisions)'])
-    df = df[~df['Decision History (all decisions)'].str.startswith("Awaiting", na=False)]
-
-    # Drop withdrawn / cancelled applications
-    df = df[~df['Decision History (all decisions)'].str.startswith("Withdraw", na=False)]
-
-    # Replace Application Expired with Rejection
-    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace('Application Expired', 'Denied')
-
-    # Merge Decision History Categories
-    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace('Admitted, Change of Term', 'Admitted, Enrollment Accepted, Change of Term')
-    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace('Enrollment Declined', 'Admitted, Enrollment Declined')
-    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace(to_replace=r'^[A-Za-z\_\-, ]*Enrollment Declined$', value='Enrollment Declined', regex=True)
-    df['Decision History (all decisions)'] = df['Decision History (all decisions)'].replace('Admitted, Deferred Admission', 'Admitted, Enrollment Accepted, Deferred Admission')
+    # Rename columns
+    df = df.rename(columns={'Application Slate ID': 'App ID', 'App - Official PUID': 'PUID', 'State or County of Residence':'State', 'Active Country':'Continent', 
+                            'App - Citizenship Status': 'Citizenship', 'App - Applicant Term/Year':'App Term', 'App - Program Choice':'Program Choice', 
+                            'App - ECE Degree Objective':'Degree Objective', 'App - ECE Area of Interest 1':'ECE Area of Interest 1', 'App - ECE Area of Interest 2':'ECE Area of Interest 2',
+                            'Decision History (all decisions)':'Decision History', 'School 1 Language of Instruction':'School 1 Language', 'School 2 Language of Instruction':'School 2 Language',
+                            'School 3 Language of Instruction':'School 3 Language', 'School 4 Language of Instruction':'School 4 Language', 'School 5 Language of Instruction':'School 5 Language',
+                            'School 6 Language of Instruction':'School 6 Language'})
+    print(list(df.columns))
 
     # Drop people who said they were 0, 5, 6 years old (3 entries)
     df = df[df['Age'] >= 18]
 
-    # Merge all Professional Masters mentioning in ECE Area Interest 1 & 2 into 1 category
-    df['App - ECE Area of Interest 1'] = df['App - ECE Area of Interest 1'].replace('Professional Masters – ECE Innovative Technologies', 'Professional Masters - Innovative Technologies')
-    df['App - ECE Area of Interest 2'] = df['App - ECE Area of Interest 2'].replace('Professional Masters – ECE Innovative Technologies', 'Professional Masters - Innovative Technologies')
+    state_mapping={np.nan: '0', "Alabama":'1', "Alaska":'2', "Arizona":'3', "Arkansas":'4', "California":'5', "Colorado":'6', "Connecticut":'7', "Delaware":'8', "Florida":'9', 
+                   "Georgia":'10', "Hawaii":'11', "Idaho":'12', "Illinois":'13', "Indiana":'14', "Iowa":'15', "Kansas":'16', "Kentucky":'17', "Louisiana":'18', "Maine":'19', 
+                   "Maryland":'20', "Massachusetts":'21', "Michigan":'22', "Minnesota":'23', "Mississippi":'24', "Missouri":'25', "Montana":'26', "Nebraska":'27', "Nevada":'28', 
+                   "New Hampshire":'29', "New Jersey":'30', "New Mexico":'31', "New York":'32', "North Carolina":'33', "North Dakota":'34', "Ohio":'35', "Oklahoma":'36', "Oregon":'37', 
+                   "Pennsylvania":'38', "Rhode Island":'39', "South Carolina":'40', "South Dakota":'41', "Tennessee":'42', "Texas":'43', "Utah":'44', "Vermont":'45', "Virginia":'46', 
+                   "Washington":'47', "West Virginia":'48', "Wisconsin":'49', "Wyoming":'50', 'Dist Of Columbia':'51', "Puerto Rico":'52', "Residents Abroad":'53'}
+    
+    # Northeast = 1, Midwest = 2, South = 3, West = 4, US Territory = 5, Outside US = 6
+    inverse_region_mapping = {'0':[np.nan],
+                              '1':["Connecticut", "Maine", "Massachusetts", "New Hampshire", "Rhode Island", "Vermont", "New Jersey", "New York", "Pennsylvania", "Delaware", "Maryland"],
+                              '2':["Illinois", "Indiana", "Michigan", "Ohio", "Wisconsin", "Iowa", "Kansas", "Minnesota", "Missouri", "Nebraska", "North Dakota", "South Dakota"],
+                              '3':['Dist Of Columbia', "Florida", "Georgia", "North Carolina", "South Carolina", "Virginia", "West Virginia", "Alabama", "Kentucky", "Mississippi", "Tennessee",
+                                 "Arkansas", "Louisiana", "Oklahoma", "Texas"],
+                              '4':["Arizona", "Colorado", "Idaho", "Montana", "Nevada", "New Mexico", "Utah", "Wyoming", "Alaska", "California", "Hawaii", "Oregon", "Washington"],
+                              '5':["Puerto Rico"],
+                              '6':["Residents Abroad"]}
+    region_mapping = {v:k for k,v_list in inverse_region_mapping.items() for v in v_list}
+
+    # Map state to nominal label
+    df['State'] = df['State'].replace(to_replace=r'^[A-Za-z ]*IN$', value="Indiana", regex=True)
+    copy_state_series = df['State'].copy()
+    df['Region of Residence'] = copy_state_series.map(region_mapping).astype(int)
+    df['State'] = df['State'].replace(state_mapping).astype(int)
+
+    # Map Country of Residence to Continent
+    # 0: Other / Unknown
+    # 1: North America
+    # 2: South America
+    # 3: Europe
+    # 4: Asia
+    # 5: Africa
+    # 6: Australia
+    reverse_continent_mapping = {'0':[np.nan],
+                                 '1':['United States', 'Panama', 'Cayman Islands', 'Canada', 'Mexico'],
+                                 '2':['Ecuador','Argentina', 'Chile', 'Brazil'],
+                                 '3':['Croatia', 'Netherlands', 'Iceland', 'Slovenia', 'France', 'United Kingdom', 'Portugal', 'Russia', 'Finland', 'Spain', 'Germany'],
+                                 '4':['Nepal', 'Israel', 'South Korea', 'Japan', 'Turkey', 'United Arab Emirates', 'Pakistan', 'Saudi Arabia', 'Palestine', 'Jordan', 'Iran', 'Taiwan', 'Bangladesh',
+                                    'India', 'Vietnam', 'China', 'Hong Kong S.A.R.', 'Kuwait'],
+                                 '5':['South Africa', 'Zambia', 'Nigeria', 'Ethiopia', 'Congo (Kinshasa)', 'Rwanda', 'Ghana', 'Egypt'],
+                                 '6':['New Zealand', 'Australia']}
+    continent_mapping = {v:k for k,v_list in reverse_continent_mapping.items() for v in v_list}
+    df['Continent'] = df['Continent'].replace(continent_mapping).astype(int)
+
+    # Categorize Citizenship
+    citizenship_mapping = {'None of the Above':'0', np.nan:'0', 'Asylee or Refugee':'1', 'Permanent Resident Non-US Ctzn':'2', 'U.S. Citizen':'3', 'International':'4'}
+    df['Citizenship'] = df['Citizenship'].replace(citizenship_mapping).astype(int)
+
+    # Categorize App Term - maybe remove later
+    application_terms = {'Fall 2020'  : '0',
+                         'Fall 2021'  : '0',
+                         'Fall 2022'  : '0',
+                         'Fall 2023'  : '0',
+                         'Fall 2024'  : '0',
+                         'Summer 2024': '1'}
+    df['App Term'] = df['App Term'].replace(application_terms).astype(int)
+
+    # Numerical Encoding of Program Choice
+    program_choice_mapping = {'Third Choice':'3', 'Second Choice':'2', np.nan:'0', 'First Choice':'1'}
+    df['Program Choice'] = df['Program Choice'].replace(program_choice_mapping).astype(int)
+
+    # Drop applications with no degree objective listed
+    df = df.dropna(subset = ['Degree Objective'])
+
+    # Drop PhD only applications
+    df = df[~df['Degree Objective'].str.startswith("Ph.D.", na=False)]
+    df = df[~df['Degree Objective'].str.startswith("Direct Ph.D.", na=False)]
+
+    # Categorize Degree Objective
+    degree_obj_mapping = {'MS/Ph.D.':'0', 'Professional Masters - Innovative Technologies':'1', 'Masters':'2'}
+    df['Degree Objective'] = df['Degree Objective'].replace(degree_obj_mapping).astype(int)
+
+    # Categorize ECE Area of Interest 1 & 2
+    ece_areas = {'Professional Masters – ECE Innovative Technologies':'0', 'Micro Electronics and Nanotechnology':'1', 'Automatic Control':'2', 'Computer Engineering':'3', 
+                 'Communications Networking Signal and Image Processing':'4', 'VLSI and Circuit Design':'5', np.nan:'6', 'Fields and Optics':'7', 'Power and Energy Systems':8, 
+                 'Biomedical Engineering':'9', 'Professional Masters - Innovative Technologies':'0'}
+    df['ECE Area of Interest 1'] = df['ECE Area of Interest 1'].replace(ece_areas).astype(int)
+    df['ECE Area of Interest 2'] = df['ECE Area of Interest 2'].replace(ece_areas).astype(int)
+
+    # Drop Application Status - don't need it since already have decison history
+    df = df.drop(columns=['Application Status'], axis=1)
+
+    # Drop incomplete applications
+    df = df.dropna(subset = ['Decision History'])
+    df = df[~df['Decision History'].str.startswith("Awaiting", na=False)]
+
+    # Drop withdrawn / cancelled applications
+    df = df[~df['Decision History'].str.startswith("Withdraw", na=False)]
+
+    # Replace Application Expired with Rejection
+    df['Decision History'] = df['Decision History'].replace('Application Expired', 'Denied')
+
+    # Merge Decision History Categories
+    df['Decision History'] = df['Decision History'].replace('Admitted, Change of Term', 'Admitted, Enrollment Accepted, Change of Term')
+    df['Decision History'] = df['Decision History'].replace('Enrollment Declined', 'Admitted, Enrollment Declined')
+    df['Decision History'] = df['Decision History'].replace(to_replace=r'^[A-Za-z\_\-, ]*Enrollment Declined$', value='Enrollment Declined', regex=True)
+    df['Decision History'] = df['Decision History'].replace('Admitted, Deferred Admission', 'Admitted, Enrollment Accepted, Deferred Admission')
+
+    print(set(df['Decision History']))
 
     # Merge repeats of schools
     df['School 1 Institution'] = df['School 1 Institution'].str.lower()
@@ -363,8 +429,8 @@ def load_application_data(file_path):
     # TODO: need to use fuzzywuzzy to categorize similar schools by branch campuses before encoding & maybe look at this again
 
     # Merge repeat languages
-    df['School 1 Language of Instruction'] = df['School 1 Language of Instruction'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
-    df['School 1 Language of Instruction'] = df['School 1 Language of Instruction'].replace(to_replace=r'^[A-Za-z\_\-\(\) ]*Farsi\)*$', value='Persian', regex=True)
+    df['School 1 Language'] = df['School 1 Language'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
+    df['School 1 Language'] = df['School 1 Language'].replace(to_replace=r'^[A-Za-z\_\-\(\) ]*Farsi\)*$', value='Persian', regex=True)
 
     # Clean up school majors
     df['School 1 Major'] = df['School 1 Major'].str.lower()
@@ -395,15 +461,9 @@ def load_application_data(file_path):
     # TODO: Fuzzy wuzzy on school 2
 
     # Merge School 2 Languagaes
-    df['School 2 Language of Instruction'] = df['School 2 Language of Instruction'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
-    df['School 2 Language of Instruction'] = df['School 2 Language of Instruction'].replace(to_replace=r'^[A-Za-z\_\-\(\) ]*Farsi\)*$', value='Persian', regex=True)
-    df['School 2 Language of Instruction'] = df['School 2 Language of Instruction'].fillna(0)
-    
-    df = df.drop(['School 1 Field', 'School 1 Honors', 'School 1 Awards', 'School 1 Hours', 'School 1 Class Rank (X out of Y)', 'School 1 Major 1', 'School 1 Major 2', 'School 1 Minor',
-    'School 1 Website','School 2 Field', 'School 2 Class Rank (X out of Y)', 'School 2 Major 1', 'School 2 Major 2', 'School 2 Minor',
-    'School 2 Honors', 'School 2 Awards', 'School 2 Hours', 'School 2 Website',
-    'School 3 Field', 'School 3 Class Rank (X out of Y)', 'School 3 Major 1', 'School 3 Major 2',
-    'School 3 Minor', 'School 3 Honors'], axis=1)
+    df['School 2 Language'] = df['School 2 Language'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
+    df['School 2 Language'] = df['School 2 Language'].replace(to_replace=r'^[A-Za-z\_\-\(\) ]*Farsi\)*$', value='Persian', regex=True)
+    df['School 2 Language'] = df['School 2 Language'].fillna(0)
 
     # Leaving out school x created and updated timestamps bc it overcomplicates model currently
     # but could potentially show how long they worked on their application
@@ -411,10 +471,13 @@ def load_application_data(file_path):
     # School 3 Data Cleaning
     df['School 3 Type'] = df['School 3 Type'].fillna(0)
     
-    # Merge School 3 Language of Instruction
-    df['School 3 Language of Instruction'] = df['School 3 Language of Instruction'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
-    df['School 3 Language of Instruction'] = df['School 3 Language of Instruction'].fillna(0)
-    # print(set(df['School 3 Honors']))
+    # Merge School 3 Language
+    df['School 3 Language'] = df['School 3 Language'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
+    df['School 3 Language'] = df['School 3 Language'].fillna(0)
+
+    # School 4 Data Cleaning
+    df['School 4 Type'] = df['School 4 Type'].fillna(0)
+    df['School 4 Language'] = df['School 4 Language'].fillna(0)
 
     # Iterate through all applicants in Excel file
     for idx, row in df.iterrows():
@@ -425,22 +488,21 @@ def load_application_data(file_path):
         applicant_idx_jobs, num_jobs_idx = create_job_list(idx, row, df)
 
         # Create application location from Location dataclass
-        applicant_idx_loc = Location(None, row['State or County of Residence'], row['Active Country'])
+        applicant_idx_loc = Location(None, row['State'], row['Continent'])
         
         # Create applicant #idx application data from Application_Data dataclass
-        app_id = row['Application Slate ID']
+        app_id = row['App ID']
 
-        applicant_idx = Application_Data(row['Application Slate ID'], 
-                                         row['App - Official PUID'], 
+        applicant_idx = Application_Data(row['App ID'], 
+                                         row['PUID'], 
                                          row['Age'],
                                          applicant_idx_loc, 
-                                         row['App - Citizenship Status'], 
-                                         application_terms[row['App - Applicant Term/Year']], 
-                                         row['App - Program Choice'],
-                                         [row['App - ECE Area of Interest 1'], 
-                                         row['App - ECE Area of Interest 2']], 
-                                         row['Application Status'], 
-                                         row['Decision History (all decisions)'],
+                                         row['Citizenship'], 
+                                         row['App Term'], 
+                                         row['Program Choice'],
+                                         [row['ECE Area of Interest 1'], 
+                                         row['ECE Area of Interest 2']],  
+                                         row['Decision History'],
                                          applicant_idx_schools, 
                                          num_schools_idx, 
                                          applicant_idx_jobs, 
@@ -448,11 +510,11 @@ def load_application_data(file_path):
 
         all_applications[app_id] = applicant_idx
 
-        decision = row['Decision History (all decisions)']
+        decision = row['Decision History']
 
         # Admitted Students
         if (decision in admitted):
-            app_to_puid[app_id] = row['App - Official PUID']
+            app_to_puid[app_id] = row['PUID']
             admit_list[app_id] = applicant_idx
 
         # Attending Students
@@ -470,9 +532,6 @@ def load_application_data(file_path):
 
 if __name__ == '__main__':
     _, _, _, _, _ = load_application_data("data/app_data/Fall20thru24_MSECEOnline_All.xlsx")
-
-    df = pd.read_excel("data/app_data/Fall20thru24_MSECEOnline_All.xlsx")
-    schools = set(df['School 1 Institution']) # come back to this
     # TODO: Following data is categorical still for each 
     # location: Optional[Location] = None
     # citizen: Optional[str] = None
