@@ -1,10 +1,24 @@
 import pandas as pd
+from pandas.core.series import Series
 import numpy as np
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import List, Optional, Tuple
 from collections import defaultdict
 from sklearn.preprocessing import OneHotEncoder
+import re
+from rapidfuzz import fuzz
+from sklearn.cluster import AgglomerativeClustering
+import requests
+from bs4 import BeautifulSoup
+import urllib.parse
+import time
+import lxml
+import requests_cache
+import cProfile
+from requests.adapters import HTTPAdapter
+import random
+from urllib3.util.retry import Retry
 
 # Dataclasses for parsing application data
 @dataclass
@@ -141,7 +155,7 @@ class Application_Data:
 
 
 # Helper functions
-def create_school_list(idx, row, df):
+def create_school_list(idx: int, row: pd.core.series.Series, df: pd.DataFrame) -> Tuple[List[School], int]:
     """
     This function creates the list of schools (school_idx_schools) that applicant #idx previously attended.
 
@@ -205,7 +219,7 @@ def create_school_list(idx, row, df):
     return applicant_idx_schools, len(applicant_idx_schools)
 
 
-def create_job_list(idx, row, df):
+def create_job_list(idx: int, row: pd.core.series.Series, df:pd.DataFrame) -> Tuple[List[Job], int]:
     """
     This function creates the list of information about jobs the applicant previously worked at.
 
@@ -247,8 +261,197 @@ def create_job_list(idx, row, df):
     return applicant_idx_jobs, len(applicant_idx_jobs)
 
 
+def normalize_school_name(name: str) -> str:
+    """
+    This function "normalizes" the school names in columns School 1-6 Institution by removing punctuation and putting names in all lowercase
+    to prepare the school names for mapping to school tier categorization.
+
+    :param name: School name in original application format
+    :type name: str
+
+    :return: School name in normalized (lowercase, no punctuation) format
+    :rtype: str
+    """
+    if pd.isna(name):
+        return "Unknown"
+    name = name.strip().lower()
+    name = name.replace('.', '').replace(',', '').replace('-', ' ').replace('univ ', 'university ').replace('inst ', 'institute ').replace('comm ', 'community ').replace('com ', 'community ').replace('ca ', 'california ').replace('cmty ', 'community ').replace(' admissions', '').replace('*','').replace('junior college', 'community').replace('unversity', 'university').replace('tech ', 'technology ').replace('/', ' ').replace('technlgy', 'technology')
+    name = ' '.join(name.split())
+    # Copied from https://gist.github.com/JeffPaine/3083347
+    abbreviations = [
+    # https://en.wikipedia.org/wiki/List_of_states_and_territories_of_the_United_States#States.
+    "AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "IA",
+    "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO",
+    "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK",
+    "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI",
+    "WV", "WY",
+    # https://en.wikipedia.org/wiki/List_of_states_and_territories_of_the_United_States#Federal_district.
+    "DC",
+    # https://en.wikipedia.org/wiki/List_of_states_and_territories_of_the_United_States#Inhabited_territories.
+    "AS", "GU", "MP", "PR", "VI",
+    ]
+
+    abbreviations = [x.lower() for x in abbreviations]
+    last_state_index = max(name.rfind(" "+s) for s in abbreviations)
+    
+    if (last_state_index == len(name) - 3):
+        name = name[0:last_state_index]
+    return name
+
+
+def group_schools(school_set: List[str], df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
+    """
+    This function clusters school names by their similarity up to a threshold of 0.2, using the fuzzywuzzy module.
+    Then, each school is replaced in the pandas DataFrame - df (which stores the admissions data) with the first school name in the cluster to reduce 
+    number of qualitative school names to categorize.
+    The school names have been normalized (all lowercase, stripped, stopwords removed) prior to this function.
+
+    :param school_set: unique list of schools that applicants attended (in columns School 1 - 6)
+    :type school_set: List[str]
+    :param df: pandas DataFrame storing all applicant data
+    :type df: pd.DataFrame
+    :param cols: column names from pandas DataFrame storing applicant data / fields from applications
+    :type cols: List[str]
+
+    :return: applicant pandas DataFrame with schools replaced by first school in their similarity cluster
+    :rtype: pd.DataFrame
+    """
+    n = len(school_set)
+    similarity_matrix = np.zeros((n, n))
+
+    for i in range(n):
+        for j in range(n):
+            score = fuzz.token_sort_ratio(school_set[i], school_set[j])
+            similarity_matrix[i, j], similarity_matrix[i, j] = score, score
+
+    dist_matrix = 100 - similarity_matrix
+    cluster = AgglomerativeClustering(
+                                      n_clusters=None, 
+                                      metric='precomputed',
+                                      linkage='average',
+                                      distance_threshold=20
+                                      )
+    labels = cluster.fit_predict(dist_matrix)
+
+    school_cluster_map = {school_set[i]: labels[i] for i in range(n)}
+    inverted_school_cluster_map = defaultdict(list)
+
+    for k, v in school_cluster_map.items():
+        inverted_school_cluster_map[v].append(k)
+
+    for k, v in inverted_school_cluster_map.items():
+        if len(v) > 1:
+            for col in cols:
+                df[col] = df[col].replace(v[1:len(v)], v[0])
+            print(v)
+    return df
+
+
+def parse_rx_school_status() -> pd.DataFrame:
+    """
+    This function reads the R1, R2, R3 status of US schools from csv downloaded from: https://carnegieclassifications.acenet.edu/.
+    CSV is stored in pandas DataFrame. The schools names are normalized, and the research activity designation is shortened.
+
+    :return: cleaned pandas DataFrame for research designation (includes 3000+ US schools from https://carnegieclassifications.acenet.edu/)
+    :rtype: pd.DataFrame
+    """
+    df2 = pd.read_csv('ace-institutional-classifications.csv', usecols=['Research Activity Designation', 'name'])
+    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research 2: High Research Spending and Doctorate Production', 'R2')
+    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research Colleges and Universities', 'R3')
+    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research 1: Very High Research Spending and Doctorate Production', 'R1')
+    df2['name'] = df2['name'].str.lower()
+    return df2
+
+
+def map_rx_school_status(df2: pd.DataFrame, school_names: List[str]) -> dict[str:List[str]]:
+    """
+    This function maps the school name from application to research designation R1, R2, R3 if it has exact match in csv from https://carnegieclassifications.acenet.edu/.
+
+    :param df2: pandas DataFrame containing name of schools and their corresponding R1, R2, R3 research designation from the Carnegie Classifications website csv
+    :type df2: pd.DataFrame
+    :param school_names: comprehensive list of school names applicants listed on applications under School 1 - 6
+    :type school_names: List[str]
+    
+    :return: dictionary mapping of applicant school name to R1, R2, R3 designation if there's exact match of name to that in csv file
+    :rtype: dict[str:List[str]]
+    """
+    school_mapping = {'R1': [], 'R2': [], 'R3': []}
+
+    for s in school_names:
+        if s in df2['name'].values:
+            school_mapping[df2.loc[df2['name'] == s, 'Research Activity Designation'].item()].append(s)
+    return school_mapping
+
+
+def query_carnegie_classifications(i: int, s: str, session: requests_cache.CachedSession) -> str:
+    """
+    This function scrapes the Carnegie Classifications website to return the research designation for the top search result that matches school s
+    from the application.
+
+    :param i: index (1-based) of school
+    :type i: int
+    :param s: 1 school name listed on application
+    :type s: str
+    :param session: Reused cached session class object used for HTTP GET requests to acquire top search result
+    :type session: requests_cache.CachedSession
+
+    :return: Research Classification for school s: "R1,", "R2", "R3", "Community" (if listed on Carnegie website but doesn't have R1, R2, R3 designation), or "None"
+    :rtype: str
+
+    Note: Schools that are labeled as "None" by this web scraping may be updated to have a tiered designation for an international school later, as this function
+    only assigns research designation / tier to US schools.
+    """
+    search_url = "https://carnegieclassifications.acenet.edu/institutions/"
+    reformatted_school = "+".join(s.split(' '))
+    url = search_url+"/?inst="+reformatted_school
+
+    try:
+        resp = session.get(url, timeout=(5, 15))
+        print(f"[{i}: Initial Request] {resp.status_code} cached={resp.from_cache}")
+        resp.raise_for_status()
+
+        # TODO - maybe clean HTML doc before parsing for speeding up
+        soup = BeautifulSoup(resp.text, 'lxml')
+        container = soup.find("div", class_="card-list-archive-institution")
+
+        if container:
+            card = container.find("div", class_="card card-archive-institution mb-4")
+            top_result = card.find("h4").find("a")
+            if top_result:
+                detail_url = urllib.parse.urljoin("https://carnegieclassifications.acenet.edu/", top_result["href"])
+                time.sleep(random.uniform(2.5, 5))
+
+                try:
+                    resp = session.get(detail_url, timeout=(5, 15)) # (connect timeout, read timeout)
+                    print(f"[{i}: Top search request] {resp.status_code} cached={resp.from_cache}")
+                    resp.raise_for_status()
+                    soup = BeautifulSoup(resp.text, "lxml")
+                    container = soup.find("div", class_="col p-3")
+                    
+                    if container:
+                        card = container.find("div", class_="institution-data-point-icon")
+                        research_text = card.get_text(strip=True)
+                        research_text = research_text.replace("Research Activity Designation:", "").strip()
+                        
+                        if "Research 1" in research_text:
+                            return "R1"
+                        elif "Research 2" in research_text:
+                            return "R2"
+                        elif "Research Colleges" in research_text:
+                            return "R3"
+                        else:
+                            return None
+                    else:
+                        return "Community"
+                except requests.exceptions.RequestException as e:
+                    print(f"[{i}] Error:", e)
+    except requests.exceptions.RequestException as e:
+        print(f"[{i}] Error:", e)
+    return None
+
+
 # Global/main function in file
-def load_application_data(file_path):
+def load_application_data(file_path: str):
     """
     This function parses the Purdue's online ECE Master's program application data for Fall 2020 - Spring 2024 semesters
     and stores the data into dictionaries based on admission decision. These dictionaries will later be modified to add course
@@ -402,6 +605,8 @@ def load_application_data(file_path):
     df['ECE Area of Interest 2'] = df['ECE Area of Interest 2'].replace(ece_areas).astype(int)
 
     # Drop Application Status - don't need it since already have decison history
+    df = df[df['Application Status'] != 'Awaiting Submission']
+    df = df[df['Application Status'] != 'Awaiting Payment']
     df = df.drop(columns=['Application Status'], axis=1)
 
     # Drop incomplete applications
@@ -420,11 +625,192 @@ def load_application_data(file_path):
     df['Decision History'] = df['Decision History'].replace(to_replace=r'^[A-Za-z\_\-, ]*Enrollment Declined$', value='Enrollment Declined', regex=True)
     df['Decision History'] = df['Decision History'].replace('Admitted, Deferred Admission', 'Admitted, Enrollment Accepted, Deferred Admission')
 
-    print(set(df['Decision History']))
+    decision_mapping = {'Admitted, Enrollment Accepted':'0', 'Admitted, Enrollment Accepted, Change of Term':'1', 'Admitted':'2', 'Admitted, Enrollment Declined, Enrollment Accepted':'3', 
+                        'Enrollment Declined':'4', 'Denied':'5', 'Admitted, Enrollment Accepted, Deferred Admission':'6'}
+    admitted_mapping = {'Admitted, Enrollment Accepted':'1', 'Admitted, Enrollment Accepted, Change of Term':'1', 'Admitted':'1', 'Admitted, Enrollment Declined, Enrollment Accepted':'1', 
+                        'Enrollment Declined':'1', 'Denied':'0', 'Admitted, Enrollment Accepted, Deferred Admission':'1'}
+    enrolled_mapping = {'Admitted, Enrollment Accepted':'1', 'Admitted, Enrollment Accepted, Change of Term':'1', 'Admitted':'0', 'Admitted, Enrollment Declined, Enrollment Accepted':'1', 
+                        'Enrollment Declined':'0', 'Denied':'0', 'Admitted, Enrollment Accepted, Deferred Admission':'1'}
+    
+    copy_decision = df['Decision History'].copy()
+    df['Decision History'] = df['Decision History'].replace(decision_mapping).astype(int) # Takes into account if they deferred or changed term
+    df['Admitted (Binary)'] = copy_decision.map(admitted_mapping).astype(int)
+    df['Enrolled (Binary)'] = copy_decision.map(enrolled_mapping).astype(int)
 
-    # Merge repeats of schools
-    df['School 1 Institution'] = df['School 1 Institution'].str.lower()
-    df['School 1 Institution'] = df['School 1 Institution'].replace(to_replace=r'^[A-Za-z\- ]*purdue[A-Za-z\- \(\)\*\/]*$', value='purdue univ', regex=True)
+    # School Type Categorization
+    school_types = {'G':'2', np.nan:'0', 'U':'1'}
+
+    for i in range(1, 7):
+        type_i_title = "School "  + str(i) + " Type"
+        name_i_title = "School " + str(i) + " Institution"
+        df[type_i_title] = df[type_i_title].replace(school_types).astype(int)
+        df[name_i_title] = df[name_i_title].apply(normalize_school_name)
+        df[name_i_title] = df[name_i_title].replace(to_replace=r'^[A-Za-z\-,\(\)\/ ]*community[A-Za-z\-\(\)\/ ]*$', value='community', regex=True)
+
+    cols = [col for col in df.columns if re.match(r'^School [1-6] Institution$', col)]
+    all_schools = set()
+
+    for col in cols:
+        all_schools.update(df[col])
+
+    purdue_branches = ['purdue university calumet hammond in', 'purdue university remote delco electronics kokomo', 'purdue university fort wayne', 'purdue university global', 
+                       'purdue university statewide tech in', 'indiana purdue university/indpls']
+    all_purdue = set(['purdue university calumet hammond in', 'purdue university remote delco electronics kokomo', 'purdue university fort wayne', 'purdue unversity', 'purduex 69503x', 
+                  'purdue', 'indiana university purdue university indianapolis', 'purduex 69501x', 'purdue university west lafayette', 'purdue university', 'purdue university global', 
+                  'purdue university west lafayette*', 'purdue university west lafayette in', 'purdue university (simplilearn)', 'purdue university statewide tech in', 'indiana purdue university/indpls'])
+    purdue_main = ['purdue unversity', 'purdue', 'purdue university west lafayette', 'purdue university', 'purdue university west lafayette*', 'purdue university west lafayette in']
+
+    for col in cols:
+        copy_schools = df[col].copy()
+        df[col] = df[col].replace(purdue_branches, 'purdue branch')
+        df[col] = df[col].replace(purdue_main, 'purdue')
+        df['Purdue (Binary)'] = copy_schools.apply(lambda x: 1 if x in all_purdue else 0) # Added variable to check if they attended Purdue or Purdue branch campus previously
+    df = group_schools(list(all_schools), df, cols)
+
+    schools = set()
+    for col in cols:
+        schools.update(df[col])
+
+    df2 = parse_rx_school_status()
+    school_dict = map_rx_school_status(df2, list(schools))
+    schools_left = list(schools - set(list(school_dict.keys())))
+
+    school_set = set()
+
+    session = requests_cache.CachedSession(
+        'my_cache', 
+        expire_after=timedelta(hours=1)
+    )
+
+    HEADERS = {
+        "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer":"https://carnegieclassifications.acenet.edu/institutions/",
+    }
+    session.headers.update(HEADERS)
+
+    # Configure retires and pool size
+    adapter = HTTPAdapter(
+        pool_connections=100,
+        pool_maxsize=100,
+        max_retries=Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504]
+        )
+    )
+
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    i = 1
+    s = schools_left[0]
+    research_des = query_carnegie_classifications(i, s, session)
+    time.sleep(random.uniform(2.5, 5))
+    research_des = query_carnegie_classifications(i, s, session)
+    # for s in schools_left:
+    #     if ((i % 20) == 0) and (i != 0):
+    #         session.close()
+    #         time.sleep(random.uniform(2.5, 5))
+    #         session = requests_cache.CachedSession('my_cache', expire_after=timedelta(hours=1))
+    #         session.headers.update(HEADERS)
+    #         session.mount("http://", adapter)
+    #         session.mount("https://", adapter)
+    #     research_des = query_carnegie_classifications(i, s, session)
+    #     school_dict[s] = research_des
+    #     school_set.add(research_des)
+    #     print(school_set)
+    #     time.sleep(random.uniform(2.5, 5))
+    #     i += 1
+    # print(len(school_set))
+    # print(school_set)
+    # print(school_dict)
+
+    # Merge repeat schools
+    # School Tier Categorization
+    # 0 - US Top Research
+    # 1 - US Public State
+    # 2 - US Community College
+    # 3 - International Top
+    # 4 - International Mid
+    # 5 - International Other
+    # 6 - Online
+    # 7 - High School
+    # 8 - Unknown / np.nan
+
+    school_tiers = {
+        # --- US R1 ---
+        'university of houston': '1',
+        'montana state university': '1',
+        'west virginia university': '1',
+        'new york university': '1',
+        'university of dayton': '1',
+        'university of rhode island': '1',
+        'cornell university': '1', 
+        'worcester polytechnic institute': '1',
+        'tufts university': '1',
+        'university of illinois chicago': '1',
+        'university of chicago': '1',
+        'the university of texas health science center at houston': '1', 
+        'university of louisville': '1', 
+        'university of georgia': '1',
+        'university of wyoming': '1', 
+        'mississippi state university': '1',
+        'university of utah': '1',
+        'university of central florida': '1',
+        'university of louisiana at lafayette': '1',
+        'vanderbilt university': '1',
+        'university of colorado boulder': '1',
+        'university of vermont': '1',
+        'oklahoma state university': '1',
+        'ohio state university': '1',
+        'colorado state university': '1',
+        'iowa state university': '1',
+        'florida state university': '1',
+        'university of maryland/baltimore city': '1',
+        'new jersey institute of tech': '1',
+        'the university of virginia': '1',
+        'tufts university': '1',
+        # --- US R2 ---
+        'middle tennessee state university': '2', 
+        'university of san diego': '2', 
+        'oakland university': '2', 
+        'university of alabama in huntsville': '2', 
+        'delaware state university': '2', 
+        'central michigan university': '2', 
+        'lamar university': '2', 
+        'texas southern university': '2', 
+        'western michigan university': '2', 
+        'university of new orleans': '2', 
+        'south dakota state university': '2',
+        # --- US R3 ---
+        'trinity university': '3', 
+        'western kentucky university': '3', 
+        'university of alaska anchorage': '3', 
+        'naval postgraduate school': '3', 
+        'university of louisiana at monroe': '3', 
+        'the college of new jersey': '3', 
+        'suny polytechnic institute': '3', 
+        'milwaukee school of engineering': '3', 
+        'hope college': '3', 
+        'florida gulf coast university': '3',
+        # --- US Non-Community College below R3 ---
+        'gratz college': '4',
+        # --- US Community College ---
+        'el camino college ca': '5',
+        'tarrant co college/se tx': '5',
+        # --- International Top ---
+        # --- International Mid ---
+        # --- International Other ---
+        # --- Online ---
+        'purduex 69503x': '6',
+        'purduex 69501x': '6',
+        'purdue university (simplilearn)': '6',
+        'sophia learning': '6'
+        # --- High School ---
+        # --- Unknown / np.nan ---
+    }
 
     # TODO: need to use fuzzywuzzy to categorize similar schools by branch campuses before encoding & maybe look at this again
 
