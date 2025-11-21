@@ -12,13 +12,23 @@ from sklearn.cluster import AgglomerativeClustering
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
-import time
+import os, time, shutil, glob
 import lxml
 import requests_cache
 import cProfile
 from requests.adapters import HTTPAdapter
 import random
 from urllib3.util.retry import Retry
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import webdriver_manager.chrome
+from webdriver_manager.chrome import ChromeDriverManager
+from tempfile import TemporaryDirectory
+import json
 
 # Dataclasses for parsing application data
 @dataclass
@@ -275,7 +285,7 @@ def normalize_school_name(name: str) -> str:
     if pd.isna(name):
         return "Unknown"
     name = name.strip().lower()
-    name = name.replace('.', '').replace(',', '').replace('-', ' ').replace('univ ', 'university ').replace('inst ', 'institute ').replace('comm ', 'community ').replace('com ', 'community ').replace('ca ', 'california ').replace('cmty ', 'community ').replace(' admissions', '').replace('*','').replace('junior college', 'community').replace('unversity', 'university').replace('tech ', 'technology ').replace('/', ' ').replace('technlgy', 'technology')
+    name = name.replace('.', '').replace(',', '').replace('-', ' ').replace('univ ', 'university ').replace('inst ', 'institute ').replace('comm ', 'community ').replace('com ', 'community ').replace(' ca ', ' california ').replace(' cmty ', ' community ').replace(' admissions', '').replace('*','').replace('junior college', 'community').replace('unversity', 'university').replace('tech ', 'technology ').replace('/', ' ').replace('technlgy', 'technology')
     name = ' '.join(name.split())
     # Copied from https://gist.github.com/JeffPaine/3083347
     abbreviations = [
@@ -343,7 +353,6 @@ def group_schools(school_set: List[str], df: pd.DataFrame, cols: List[str]) -> p
         if len(v) > 1:
             for col in cols:
                 df[col] = df[col].replace(v[1:len(v)], v[0])
-            print(v)
     return df
 
 
@@ -356,31 +365,127 @@ def parse_rx_school_status() -> pd.DataFrame:
     :rtype: pd.DataFrame
     """
     df2 = pd.read_csv('ace-institutional-classifications.csv', usecols=['Research Activity Designation', 'name'])
-    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research 2: High Research Spending and Doctorate Production', 'R2')
-    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research Colleges and Universities', 'R3')
-    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research 1: Very High Research Spending and Doctorate Production', 'R1')
+    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research 2: High Research Spending and Doctorate Production', 2)
+    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research Colleges and Universities', 3)
+    df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research 1: Very High Research Spending and Doctorate Production', 1)
     df2['name'] = df2['name'].str.lower()
     return df2
 
 
-def map_rx_school_status(df2: pd.DataFrame, school_names: List[str]) -> dict[str:List[str]]:
+def map_rx_school_status(app_df: pd.DataFrame, carnegie_csv_df: pd.DataFrame, col: str) -> dict[str:List[str]]:
     """
     This function maps the school name from application to research designation R1, R2, R3 if it has exact match in csv from https://carnegieclassifications.acenet.edu/.
 
-    :param df2: pandas DataFrame containing name of schools and their corresponding R1, R2, R3 research designation from the Carnegie Classifications website csv
-    :type df2: pd.DataFrame
-    :param school_names: comprehensive list of school names applicants listed on applications under School 1 - 6
-    :type school_names: List[str]
+    :param app_df: pandas DataFrame containing data from application csv for Fall 2020 - Spring 2024
+    :type app_df: pd.DataFrame
+    :param carnegie_csv_df: pandas DataFrame containing name of schools and their corresponding R1, R2, R3 research designation from the Carnegie Classifications website csv
+    :type carnegie_csv_df: pd.DataFrame
+    :param col: column name as string for columns in app_df that correspond to school names
+    :type col: str
     
     :return: dictionary mapping of applicant school name to R1, R2, R3 designation if there's exact match of name to that in csv file
     :rtype: dict[str:List[str]]
     """
-    school_mapping = {'R1': [], 'R2': [], 'R3': []}
+    for idx, s in app_df[col].items():
+        if s in carnegie_csv_df['name'].values:
+            app_df.at[idx, col] = carnegie_csv_df.loc[carnegie_csv_df['name'] == s, 'Research Activity Designation'].item()
+    return app_df
 
-    for s in school_names:
-        if s in df2['name'].values:
-            school_mapping[df2.loc[df2['name'] == s, 'Research Activity Designation'].item()].append(s)
-    return school_mapping
+
+def query_all_us_schools(schools_left: set, school_dict: dict) -> dict:
+    """
+    This function scrapes the Carnegie Classification website for each school that was not a 1 to 1 match from the Carnegie Classifiation csv.
+    The top result ranking is assigned to the school dictionary for the associated school. If there's no match, None is assigned.
+
+    :param schools_left: Set of school names that don't have an assigned ranking yet (R1, R2, R3, Unknown, etc.)
+    :type schools_left: set
+    :param school_dict: Set of rankings with associated school names - to be updated in function for US schools
+    :type school_dict: dict
+
+    :return: the updated school dictionary with rankings matched to school name
+    :rtype: dict
+    """
+    session = requests_cache.CachedSession(
+        'my_cache', 
+        expire_after=timedelta(hours=1)
+    )
+
+    HEADERS = {
+        "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer":"https://carnegieclassifications.acenet.edu/institutions/",
+    }
+
+    session.headers.update(HEADERS)
+
+    # Configure retires and pool size
+    adapter = HTTPAdapter(
+        pool_connections=100,
+        pool_maxsize=100,
+        max_retries=Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504]
+        )
+    )
+
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    i = 1
+    for s in schools_left:
+        if ((i % 20) == 0) and (i != 0):
+            session.close()
+            time.sleep(random.uniform(2.5, 5))
+            session = requests_cache.CachedSession('my_cache', expire_after=timedelta(hours=1))
+            session.headers.update(HEADERS)
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+        research_des = query_carnegie_classifications(i, s, session)
+        school_dict[s] = research_des
+        time.sleep(random.uniform(2.5, 5))
+        i += 1
+    return school_dict
+
+
+def query_all_intl_schools(intl_schools: List[str]) -> dict[str, str]:
+    """
+    This function scrapes the QS world University rankings website for all non-US schools that were not previously identified from the QS World Rankings csv.
+
+    :param intl_schools: Names of all international schools that have not had rank assigned yet
+    :type intl_schools: List[str]
+
+    :return: Mapping of school name to one of the following rankings: Intl Top, Intl Mid, Intl Low, Unknown
+    :rtype: dict
+    """
+    options = webdriver.ChromeOptions()
+    options.add_argument("--incognito")
+    options.page_load_strategy = 'normal'
+    service = Service(executable_path="/home/min/a/rhorwatt/local/chromedriver/usr/lib64/chromium-browser/chromedriver")
+    driver = webdriver.Chrome(
+        service=service, 
+        options=options
+        )
+
+    intl_dict = {
+        "Unknown":[],
+        "Intl Top":[],
+        "Intl Mid":[],
+        "Intl Low":[]  
+    }
+
+    i = 1
+    for s in intl_schools:
+        research_des = query_qs_website(i, s, driver)
+        if research_des == None:
+            intl_dict["Unknown"].append(s)
+        else:
+            intl_dict[research_des] = s
+        time.sleep(random.uniform(2.5, 5))
+        i += 1
+    driver.quit()
+    return intl_dict
 
 
 def query_carnegie_classifications(i: int, s: str, session: requests_cache.CachedSession) -> str:
@@ -407,10 +512,8 @@ def query_carnegie_classifications(i: int, s: str, session: requests_cache.Cache
 
     try:
         resp = session.get(url, timeout=(5, 15))
-        print(f"[{i}: Initial Request] {resp.status_code} cached={resp.from_cache}")
         resp.raise_for_status()
 
-        # TODO - maybe clean HTML doc before parsing for speeding up
         soup = BeautifulSoup(resp.text, 'lxml')
         container = soup.find("div", class_="card-list-archive-institution")
 
@@ -423,7 +526,6 @@ def query_carnegie_classifications(i: int, s: str, session: requests_cache.Cache
 
                 try:
                     resp = session.get(detail_url, timeout=(5, 15)) # (connect timeout, read timeout)
-                    print(f"[{i}: Top search request] {resp.status_code} cached={resp.from_cache}")
                     resp.raise_for_status()
                     soup = BeautifulSoup(resp.text, "lxml")
                     container = soup.find("div", class_="col p-3")
@@ -446,6 +548,49 @@ def query_carnegie_classifications(i: int, s: str, session: requests_cache.Cache
                 except requests.exceptions.RequestException as e:
                     print(f"[{i}] Error:", e)
     except requests.exceptions.RequestException as e:
+        print(f"[{i}] Error:", e)
+    return None
+
+
+def query_qs_website(i:int, s: str, driver: webdriver.Chrome) -> str:
+    """
+    This function scrapes the QS World Rankings website to return the research designation for the top search result that matches school s
+    from the application.
+
+    :param i: index (1-based) of school
+    :type i: int
+    :param s: 1 school name listed on application
+    :type s: str
+    :param driver: Reused selenium webdriver used for HTTP GET requests to acquire top search result
+    :type driver: selenium.webdriver.Chrome
+
+    :return: Research Classification / Tier for school s: "Intl Top", "Intl Mid", "Intl Low", or "Unknown"
+    :rtype: str
+
+    Note: Schools that are labeled as "None" by this web scraping may be updated to have a tiered designation later with manual search.
+    """
+    search_url = "https://edurank.org/uni-search?s="
+    reformatted_school = "+".join(s.split(' '))
+    url = search_url+reformatted_school
+
+    try:
+        driver.get(url)
+        driver.implicitly_wait(10)
+
+        try:
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            for i, f in enumerate(iframes):
+                src = f.get_attribute("src")
+            html = driver.page_source
+            soup = BeautifulSoup(html, 'lxml')
+            pretty_soup = soup.prettify()
+
+            with open("edurank.html", "w", encoding="utf-8") as f:
+                f.write(pretty_soup)
+            f.close()
+        except:
+            return None
+    except Exception as e:
         print(f"[{i}] Error:", e)
     return None
 
@@ -665,154 +810,45 @@ def load_application_data(file_path: str):
         df[col] = df[col].replace(purdue_branches, 'purdue branch')
         df[col] = df[col].replace(purdue_main, 'purdue')
         df['Purdue (Binary)'] = copy_schools.apply(lambda x: 1 if x in all_purdue else 0) # Added variable to check if they attended Purdue or Purdue branch campus previously
-    df = group_schools(list(all_schools), df, cols)
-
-    schools = set()
-    for col in cols:
-        schools.update(df[col])
 
     df2 = parse_rx_school_status()
-    school_dict = map_rx_school_status(df2, list(schools))
-    schools_left = list(schools - set(list(school_dict.keys())))
+    for col in cols:
+        df = map_rx_school_status(df, df2, col)
 
-    school_set = set()
-
-    session = requests_cache.CachedSession(
-        'my_cache', 
-        expire_after=timedelta(hours=1)
-    )
-
-    HEADERS = {
-        "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer":"https://carnegieclassifications.acenet.edu/institutions/",
-    }
-    session.headers.update(HEADERS)
-
-    # Configure retires and pool size
-    adapter = HTTPAdapter(
-        pool_connections=100,
-        pool_maxsize=100,
-        max_retries=Retry(
-            total=3,
-            backoff_factor=0.5,
-            status_forcelist=[500, 502, 503, 504]
-        )
-    )
-
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-
-    i = 1
-    s = schools_left[0]
-    research_des = query_carnegie_classifications(i, s, session)
-    time.sleep(random.uniform(2.5, 5))
-    research_des = query_carnegie_classifications(i, s, session)
-    # for s in schools_left:
-    #     if ((i % 20) == 0) and (i != 0):
-    #         session.close()
-    #         time.sleep(random.uniform(2.5, 5))
-    #         session = requests_cache.CachedSession('my_cache', expire_after=timedelta(hours=1))
-    #         session.headers.update(HEADERS)
-    #         session.mount("http://", adapter)
-    #         session.mount("https://", adapter)
-    #     research_des = query_carnegie_classifications(i, s, session)
-    #     school_dict[s] = research_des
-    #     school_set.add(research_des)
-    #     print(school_set)
-    #     time.sleep(random.uniform(2.5, 5))
-    #     i += 1
-    # print(len(school_set))
-    # print(school_set)
-    # print(school_dict)
-
-    # Merge repeat schools
     # School Tier Categorization
-    # 0 - US Top Research
-    # 1 - US Public State
-    # 2 - US Community College
-    # 3 - International Top
-    # 4 - International Mid
-    # 5 - International Other
-    # 6 - Online
-    # 7 - High School
-    # 8 - Unknown / np.nan
+    # 1 - US R1
+    # 2 - US R2
+    # 3 - US R3
+    # 4 - US Other
+    # 5 - US Community College
+    # 6 - International Top
+    # 7 - International Mid
+    # 8 - International Other
+    # 9 - High School
+    # 10 - Online
+    with open("school_to_rank.json", "r", encoding="utf-8") as f:
+        school_to_rank = json.load(f)
 
-    school_tiers = {
-        # --- US R1 ---
-        'university of houston': '1',
-        'montana state university': '1',
-        'west virginia university': '1',
-        'new york university': '1',
-        'university of dayton': '1',
-        'university of rhode island': '1',
-        'cornell university': '1', 
-        'worcester polytechnic institute': '1',
-        'tufts university': '1',
-        'university of illinois chicago': '1',
-        'university of chicago': '1',
-        'the university of texas health science center at houston': '1', 
-        'university of louisville': '1', 
-        'university of georgia': '1',
-        'university of wyoming': '1', 
-        'mississippi state university': '1',
-        'university of utah': '1',
-        'university of central florida': '1',
-        'university of louisiana at lafayette': '1',
-        'vanderbilt university': '1',
-        'university of colorado boulder': '1',
-        'university of vermont': '1',
-        'oklahoma state university': '1',
-        'ohio state university': '1',
-        'colorado state university': '1',
-        'iowa state university': '1',
-        'florida state university': '1',
-        'university of maryland/baltimore city': '1',
-        'new jersey institute of tech': '1',
-        'the university of virginia': '1',
-        'tufts university': '1',
-        # --- US R2 ---
-        'middle tennessee state university': '2', 
-        'university of san diego': '2', 
-        'oakland university': '2', 
-        'university of alabama in huntsville': '2', 
-        'delaware state university': '2', 
-        'central michigan university': '2', 
-        'lamar university': '2', 
-        'texas southern university': '2', 
-        'western michigan university': '2', 
-        'university of new orleans': '2', 
-        'south dakota state university': '2',
-        # --- US R3 ---
-        'trinity university': '3', 
-        'western kentucky university': '3', 
-        'university of alaska anchorage': '3', 
-        'naval postgraduate school': '3', 
-        'university of louisiana at monroe': '3', 
-        'the college of new jersey': '3', 
-        'suny polytechnic institute': '3', 
-        'milwaukee school of engineering': '3', 
-        'hope college': '3', 
-        'florida gulf coast university': '3',
-        # --- US Non-Community College below R3 ---
-        'gratz college': '4',
-        # --- US Community College ---
-        'el camino college ca': '5',
-        'tarrant co college/se tx': '5',
-        # --- International Top ---
-        # --- International Mid ---
-        # --- International Other ---
-        # --- Online ---
-        'purduex 69503x': '6',
-        'purduex 69501x': '6',
-        'purdue university (simplilearn)': '6',
-        'sophia learning': '6'
-        # --- High School ---
-        # --- Unknown / np.nan ---
-    }
-
-    # TODO: need to use fuzzywuzzy to categorize similar schools by branch campuses before encoding & maybe look at this again
+    count, non_count = 0, 0
+    unmapped = set()
+    for col in cols:
+        for idx, s in df[col].items():
+            if (not isinstance(s, int)) and (s in school_to_rank):
+                count += 1
+                df.at[idx, col] = school_to_rank[s]
+            elif s == "Unknown" or s == "no response" or "sean greene":
+                df.at[idx, col] = 0
+                count += 1
+            else:
+                non_count += 1
+                if (not isinstance(s, int)):
+                    unmapped.add(s)
+            # else:
+            #     if (not isinstance(s, int)):
+            #         print(s)
+    for s in unmapped:
+        print(s)
+    print(len(unmapped))
 
     # Merge repeat languages
     df['School 1 Language'] = df['School 1 Language'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
@@ -911,20 +947,22 @@ def load_application_data(file_path: str):
         elif (decision in rejected):
             rejected_list[app_id] = applicant_idx
 
-    # print(f"""Number of Total Applications: {len(all_applications)}\nNumber of Admitted Students: {len(admit_list)}\nNumber of Rejected Students: {len(rejected_list)}\n
-    # Number of Attending Students: {len(accepted_list)}""")
-
     return all_applications, admit_list, accepted_list, rejected_list, app_to_puid
 
 if __name__ == '__main__':
     _, _, _, _, _ = load_application_data("data/app_data/Fall20thru24_MSECEOnline_All.xlsx")
+   
+    # intl_schools = []
+    # fp = open('schools_left.txt','r')
+    # lines = fp.readlines()
+    # for l in lines:
+    #     name = l.replace('\t', '')
+    #     name = name.replace('\n', '')
+    #     intl_schools.append(name)
+    # fp.close()
+
     # TODO: Following data is categorical still for each 
     # location: Optional[Location] = None
-    # citizen: Optional[str] = None
-    # program: Optional[str] = None
-    # app_areas: List[str] = field(default_factory=list)
-    # app_status: Optional[str] = None
-    # decision: Optional[str] = None
     # schools: List[School] = None - Make all schools the same
     # jobs: List[Job] = None
 
@@ -936,9 +974,7 @@ if __name__ == '__main__':
     # title: Optional[str] = None
     # description: Optional[str] = None
 
-    # degree_type: Optional[str] = None
     # name: Optional[str] = None
-    # ins_lang: Optional[str] = None
     # start: Optional[pd.Timestamp] = None
     # end: Optional[pd.Timestamp] = None
     # duration: Optional[pd.Timestamp] = None
