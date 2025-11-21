@@ -829,26 +829,12 @@ def load_application_data(file_path: str):
     with open("school_to_rank.json", "r", encoding="utf-8") as f:
         school_to_rank = json.load(f)
 
-    count, non_count = 0, 0
-    unmapped = set()
     for col in cols:
         for idx, s in df[col].items():
             if (not isinstance(s, int)) and (s in school_to_rank):
-                count += 1
                 df.at[idx, col] = school_to_rank[s]
             elif s == "Unknown" or s == "no response" or "sean greene":
                 df.at[idx, col] = 0
-                count += 1
-            else:
-                non_count += 1
-                if (not isinstance(s, int)):
-                    unmapped.add(s)
-            # else:
-            #     if (not isinstance(s, int)):
-            #         print(s)
-    for s in unmapped:
-        print(s)
-    print(len(unmapped))
 
     # Merge repeat languages
     df['School 1 Language'] = df['School 1 Language'].replace(to_replace=r'^Chinese[A-Za-z\_\- ]*$', value='Chinese', regex=True)
