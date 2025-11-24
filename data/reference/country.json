@@ -1,0 +1,237 @@
+{
+  "Argentina": {
+    "region": 2,
+    "HDI": 0.858,
+    "income_tier": 3
+  },
+  "Nepal": {
+    "region": 7,
+    "HDI": 0.622,
+    "income_tier": 2
+  },
+  "Netherlands": {
+    "region": 3,
+    "HDI": 0.955,
+    "income_tier": 4
+  },
+  "Mexico": {
+    "region": 1,
+    "HDI": 0.789,
+    "income_tier": 3
+  },
+  "Croatia": {
+    "region": 4,
+    "HDI": 0.889,
+    "income_tier": 4
+  },
+  "Ecuador": {
+    "region": 2,
+    "HDI": 0.777,
+    "income_tier": 3
+  },
+  "Israel": {
+    "region": 5,
+    "HDI": 0.919,
+    "income_tier": 4
+  },
+  "Brazil": {
+    "region": 2,
+    "HDI": 0.786,
+    "income_tier": 3
+  },
+  "Cayman Islands": {
+    "region": 1,
+    "HDI": 0.9,
+    "income_tier": 4
+  },
+  "Iceland": {
+    "region": 3,
+    "HDI": 0.972,
+    "income_tier": 4
+  },
+  "Palestine": {
+    "region": 5,
+    "HDI": 0.674,
+    "income_tier": 2
+  },
+  "Hong Kong S.A.R.": {
+    "region": 8,
+    "HDI": 0.955,
+    "income_tier": 4
+  },
+  "Australia": {
+    "region": 10,
+    "HDI": 0.958,
+    "income_tier": 4
+  },
+  "Ethiopia": {
+    "region": 6,
+    "HDI": 0.497,
+    "income_tier": 0
+  },
+  "China": {
+    "region": 8,
+    "HDI": 0.797,
+    "income_tier": 3
+  },
+  "Ghana": {
+    "region": 6,
+    "HDI": 0.628,
+    "income_tier": 2
+  },
+  "Turkey": {
+    "region": 5,
+    "HDI": 0.853,
+    "income_tier": 3
+  },
+  "United States": {
+    "region": 1,
+    "HDI": 0.938,
+    "income_tier": 4
+  },
+  "Bangladesh": {
+    "region": 7,
+    "HDI": 0.685,
+    "income_tier": 2
+  },
+  "United Arab Emirates": {
+    "region": 5,
+    "HDI": 0.94,
+    "income_tier": 4
+  },
+  "Pakistan": {
+    "region": 7,
+    "HDI": 0.544,
+    "income_tier": 2
+  },
+  "Slovenia": {
+    "region": 3,
+    "HDI": 0.931,
+    "income_tier": 4
+  },
+  "South Korea": {
+    "region": 8,
+    "HDI": 0.937,
+    "income_tier": 4
+  },
+  "Rwanda": {
+    "region": 6,
+    "HDI": 0.578,
+    "income_tier": 1
+  },
+  "Zambia": {
+    "region": 6,
+    "HDI": 0.595,
+    "income_tier": 2
+  },
+  "Panama": {
+    "region": 1,
+    "HDI": 0.839,
+    "income_tier": 4
+  },
+  "Russia": {
+    "region": 4,
+    "HDI": 0.832,
+    "income_tier": 4
+  },
+  "Egypt": {
+    "region": 5,
+    "HDI": 0.754,
+    "income_tier": 2
+  },
+  "Saudi Arabia": {
+    "region": 5,
+    "HDI": 0.9,
+    "income_tier": 4
+  },
+  "Spain": {
+    "region": 3,
+    "HDI": 0.918,
+    "income_tier": 4
+  },
+  "Iran": {
+    "region": 5,
+    "HDI": 0.799,
+    "income_tier": 3
+  },
+  "Japan": {
+    "region": 8,
+    "HDI": 0.925,
+    "income_tier": 4
+  },
+  "Chile": {
+    "region": 2,
+    "HDI": 0.878,
+    "income_tier": 4
+  },
+  "Finland": {
+    "region": 3,
+    "HDI": 0.948,
+    "income_tier": 4
+  },
+  "Canada": {
+    "region": 1,
+    "HDI": 0.939,
+    "income_tier": 4
+  },
+  "Germany": {
+    "region": 3,
+    "HDI": 0.959,
+    "income_tier": 4
+  },
+  "Taiwan": {
+    "region": 8,
+    "HDI": 0.91,
+    "income_tier": 4
+  },
+  "France": {
+    "region": 3,
+    "HDI": 0.92,
+    "income_tier": 4
+  },
+  "Vietnam": {
+    "region": 9,
+    "HDI": 0.766,
+    "income_tier": 2
+  },
+  "Kuwait": {
+    "region": 5,
+    "HDI": 0.852,
+    "income_tier": 4
+  },
+  "New Zealand": {
+    "region": 10,
+    "HDI": 0.938,
+    "income_tier": 4
+  },
+  "United Kingdom": {
+    "region": 3,
+    "HDI": 0.946,
+    "income_tier": 4
+  },
+  "Jordan": {
+    "region": 5,
+    "HDI": 0.754,
+    "income_tier": 2
+  },
+  "Nigeria": {
+    "region": 6,
+    "HDI": 0.56,
+    "income_tier": 2
+  },
+  "Portugal": {
+    "region": 3,
+    "HDI": 0.89,
+    "income_tier": 4
+  },
+  "South Africa": {
+    "region": 6,
+    "HDI": 0.741,
+    "income_tier": 3
+  },
+  "India": {
+    "region": 7,
+    "HDI": 0.685,
+    "income_tier": 2
+  }
+}
