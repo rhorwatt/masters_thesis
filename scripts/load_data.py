@@ -29,6 +29,11 @@ import webdriver_manager.chrome
 from webdriver_manager.chrome import ChromeDriverManager
 from tempfile import TemporaryDirectory
 import json
+from datetime import datetime
+from gensim.models.keyedvectors import KeyedVectors
+from num2words import num2words
+from transformers import BertTokenizer, BertModel
+import torch
 
 class MiscDataHelpers:
     @staticmethod
@@ -79,6 +84,11 @@ class MiscDataHelpers:
 
         # Drop people who said they were 0, 5, 6 years old (3 entries)
         df = df[df['Age'] >= 18]
+
+        # Drop columns referring to school and job cities - don't need this level of granularity
+        s_cities = ['School ' + str(i) + ' City' for i in range(1,7)]
+        j_cities = ['Job ' + str(i) + ' City' for i in range(1, 7)]
+        df = df.drop(columns= s_cities + j_cities)
         return df
 
     @staticmethod
@@ -135,18 +145,19 @@ class MiscDataHelpers:
         df['app_hdi'] = 0
         df['app_region'] = 0
 
-        with open('country.json', 'r') as f:
+        with open('data/reference/country.json', 'r') as f:
             country_features_json = json.load(f)
         f.close()
 
+        hdi_mapping = {k: v['HDI'] for k, v in country_features_json.items()}
+        income_mapping = {k: v['income_tier'] for k, v in country_features_json.items()}
+        region_mapping = {k: v['region'] for k, v in country_features_json.items()}
+
         df['Continent'] = df['Country'].fillna('MISSING') # Will become one hot encoding of country
-        for idx, val in df['Country'].items():
-            if val == 'United States':
-                df.at[idx, 'is_domestic'] = 1
-            if val != 'MISSING':
-                df.at[idx, 'app_region'] = country_features_json[val]['region']
-                df.at[idx, 'app_income_tier'] = country_features_json[val]['income_tier']
-                df.at[idx, 'app_hdi'] = country_features_json[val]['HDI']
+        df['is_domestic'] = (df['Country'] == 'United States').astype(int)
+        df['app_region'] = df['Country'].map(region_mapping)
+        df['app_income_tier'] = df['Country'].map(income_mapping)
+        df['app_hdi'] = df['Country'].map(hdi_mapping)
 
         # One Hot Encoding of Country
         df['Country'] = df['Country'].fillna('MISSING')
@@ -157,6 +168,7 @@ class MiscDataHelpers:
         df['Citizenship'] = df['Citizenship'].replace(citizenship_mapping).astype(int)
         return df
     
+    @staticmethod
     def process_program_data(df:pd.DataFrame)->pd.DataFrame:
         """
         This function encodes the application term, program choice, degree objective, and ECE Areas of Interest 1 & 2.
@@ -198,17 +210,20 @@ class MiscDataHelpers:
         }
 
         # Encode App Term
-        df['App Term'] = df['App Term'].replace(application_terms).astype(int)
+        df['is_fall'] = df['App Term'].map(application_terms).astype(int)
 
         # Numerical Encoding of Program Choice
-        df['Program Choice'] = df['Program Choice'].replace(program_choice_mapping).astype(int)
+        df['Program Choice'] = df['Program Choice'].map(program_choice_mapping).astype(int)
 
         # Encode Degree Objective
-        df['Degree Objective'] = df['Degree Objective'].replace(degree_obj_mapping).astype(int)
+        df['Degree Objective'] = df['Degree Objective'].map(degree_obj_mapping).astype(int)
 
         # Encode ECE Area of Interest 1 & 2
-        df['ECE Area of Interest 1'] = df['ECE Area of Interest 1'].replace(ece_areas).astype(int)
-        df['ECE Area of Interest 2'] = df['ECE Area of Interest 2'].replace(ece_areas).astype(int)
+        mapped1 = df['ECE Area of Interest 1'].map(ece_areas)
+        mapped2 = df['ECE Area of Interest 2'].map(ece_areas)
+
+        df['ECE Area of Interest 1'] = mapped1.astype('Int64')
+        df['ECE Area of Interest 2'] = mapped2.astype('Int64')
         return df
     
     @staticmethod
@@ -368,10 +383,15 @@ class SchoolDataHelpers:
         :return: cleaned pandas DataFrame for research designation (includes 3000+ US schools from https://carnegieclassifications.acenet.edu/)
         :rtype: pd.DataFrame
         """
-        df2 = pd.read_csv('ace-institutional-classifications.csv', usecols=['Research Activity Designation', 'name'])
-        df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research 2: High Research Spending and Doctorate Production', 2)
-        df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research Colleges and Universities', 3)
-        df2['Research Activity Designation'] = df2['Research Activity Designation'].replace('Research 1: Very High Research Spending and Doctorate Production', 1)
+        mapping = {
+            'Research 2: High Research Spending and Doctorate Production': 2,
+            'Research Colleges and Universities': 3,
+            'Research 1: Very High Research Spending and Doctorate Production': 1
+        }
+
+        df2 = pd.read_csv('data/reference/ace-institutional-classifications.csv', usecols=['Research Activity Designation', 'name'])
+        mapped = df2['Research Activity Designation'].map(mapping)
+        df2['Research Activity Designation'] = mapped.where(mapped.notna(), df2['Research Activity Designation'])
         df2['name'] = df2['name'].str.lower()
         return df2
 
@@ -839,19 +859,21 @@ class SchoolDataHelpers:
             ]
 
         df['Purdue (Binary)'] = 0
+        missing_school_cols = ['School ' + str(i) + ' Missing' for i in range(1,7)]
         df2 = SchoolDataHelpers.parse_rx_school_status()  # Stores all Carnegie Classifications for US schools (R1, R2, R3, Other) from Carnegie website
 
-        with open("school_to_rank.json", "r", encoding="utf-8") as f:
+        with open("data/reference/school_to_rank.json", "r", encoding="utf-8") as f:
             school_to_rank = json.load(f)
         f.close()
 
         # Normalize / clean all school names
-        for c in cols:
+        for m, c in zip(missing_school_cols, cols):
             df[c] = df[c].apply(SchoolDataHelpers.normalize_school_name)
             df[c] = df[c].replace(to_replace=r'^[A-Za-z\-,\(\)\/ ]*community[A-Za-z\-\(\)\/ ]*$', value='community', regex=True)
             df[c] = df[c].replace(purdue_branches, 'purdue branch')
             df[c] = df[c].replace(purdue_main, 'purdue')
             df = SchoolDataHelpers.map_rx_school_status(df, df2, c)
+            df[m] = 0
 
             for idx, val in df[c].items():
                 if (val in all_purdue) and not(df.at[idx, 'Purdue (Binary)']):
@@ -861,7 +883,10 @@ class SchoolDataHelpers:
                 if (not isinstance(val, int)) and (val in school_to_rank):
                     # Map school tier to that from school_to_rank.json reference
                     df.at[idx, c] = school_to_rank[val]
-                elif (val == "Unknown") or (val == "no response") or (val == "sean greene"):
+                elif (val == "Unknown"):
+                    df.at[idx, m] = 1
+                    df.at[idx, c] = 0
+                elif (val == "no response") or (val == "sean greene"):
                     df.at[idx, c] = 0
         return df
     
@@ -878,7 +903,7 @@ class SchoolDataHelpers:
                     df.at[idx, val] = 'Chinese'
                 elif (val == 'Persian (Farsi)'):
                     df.at[idx, val] = 'Farsi'
-            df = pd.get_dummies(df, columns=[c], prefix=f'School{i}_Lang_')
+            df = pd.get_dummies(df, columns=[c], prefix=f'School_{i}_Lang')
         return df
     
     @staticmethod
@@ -903,6 +928,8 @@ class SchoolDataHelpers:
         """
         gpa_cols = ['School ' + str(i) + ' GPA' for i in range(1, 7)]
         gpa_scale_cols = ['School ' + str(i) + ' GPA Scale' for i in range(1, 7)]
+        gpa_conv_cols = ['School ' + str(i) + ' GPA Converted' for i in range(1,7)]
+        confirmed_cols = ['School ' + str(i) + ' Confirmed' for i in range(1,7)]
 
         for c in gpa_cols:
             # Fill NaN GPA's with 0 - they might not have school information
@@ -917,7 +944,17 @@ class SchoolDataHelpers:
                     if df.at[idx, gpa_col] != 0:
                         df.at[idx, c] = 4.0
 
-        #TODO update GPA converted columns
+        for i, c in enumerate(gpa_conv_cols):
+            df[c] = df[c].fillna(0)
+            for j, val in df[c].items():
+                if (val == 0) and (df.at[j, gpa_cols[i]] != 0):
+                    df.at[j, c] = (df.at[j, gpa_cols[i]] / df.at[j, gpa_scale_cols[i]]) * 4
+
+        df = df.drop(columns=['School 1 GPA Recalculated'])
+        df = df.drop(columns= gpa_cols+gpa_scale_cols)
+
+        for c in confirmed_cols:
+            df[c] = df[c].fillna(0)
         return df
     
     @staticmethod
@@ -934,13 +971,305 @@ class SchoolDataHelpers:
                 df.at[idx, c] = SchoolDataHelpers.encode_one_degree_level(s)
         return df
     
+    @staticmethod
+    def compute_last_edit_delta(df: pd.DataFrame, app_deadlines: dict[str, datetime]) -> pd.DataFrame:
+        """
+        This function drops the columns for school 1-6 creation.
+        It also calculates the difference between last time applicant edited school information and the application due date.
+
+        :param df: partially cleaned pandas dataframe of raw applicant data for Fall 2020 - Spring 2024 semesters
+        :type df: pd.DataFrame
+        :param app_deadlines: dictionary of application semester and corresponding application deadline
+        :type app_deadlines: dict[str, datetime]
+
+        :return: application dataframe with difference between last school information edit and application due date updated
+        :rtype: pd.DataFrame
+        """
+        update_cols = ['School ' + str(i) + ' Updated' for i in range(1,7)]
+        new_cols = ['School ' + str(i) + ' Update' for i in range(1,7)]
+
+        for c in new_cols:
+            df[c] = np.timedelta64(0, 'ns')
+
+        for j, c in enumerate(update_cols):
+            df[c] = df[c].fillna(0)
+            for i, val in df[c].items():
+                if (val != 0):
+                    df.at[i, new_cols[j]] = app_deadlines[df.at[i, 'App Term']] - val.to_pydatetime()
+        
+        df = df.drop(columns=update_cols)
+        return df
+    
+    @staticmethod
+    def compute_school_job_duration_recency(df: pd.DataFrame, app_deadlines: dict[str, datetime]) -> pd.DataFrame:
+        """
+        This function computes the duration applicant attended each school listed on application
+        and calculates recency of last degree graduation to deadline of application.
+
+        :param df: partially cleaned pandas dataframe of raw applicant data for Fall 2020 - Spring 2024 semesters
+        :type df: pd.DataFrame
+        :param app_deadlines: dictionary of application semester and corresponding application deadline
+        :type app_deadlines: dict[str, datetime]
+
+        :return: application dataframe with duration of school and job attendance, as well as recency of last attendance and work updated
+        :rtype: pd.DataFrame
+        """
+
+        s_from_cols = ['School ' + str(i) + ' From' for i in range(1, 7)]
+        s_to_cols = ['School ' + str(i) + ' To' for i in range(1, 7)]
+        s_duration_cols = ['School ' + str(i) + ' Duration' for i in range(1, 7)]
+        s_recency_cols = ['School '+ str(i) + ' Recency' for i in range(1, 7)]
+
+        j_from_cols = ['Job ' + str(i) + ' From' for i in range(1, 7)]
+        j_to_cols = ['Job ' + str(i) + ' To' for i in range(1, 7)]
+        j_duration_cols = ['Job ' + str(i) + ' Duration' for i in range(1, 7)]
+        j_recency_cols = ['Job '+ str(i) + ' Recency' for i in range(1, 7)]
+        zero_time_delta = app_deadlines['Fall 2020'] - app_deadlines['Fall 2020']
+
+        for s_from, s_to, s_dur, s_rec, j_from, j_to, j_dur, j_rec in zip(s_from_cols, s_to_cols, s_duration_cols, s_recency_cols, j_from_cols, j_to_cols, j_duration_cols, j_recency_cols):
+            df[s_from].fillna(0)
+            df[s_to].fillna(0)
+            df[j_from].fillna(0)
+            df[j_to].fillna(0)
+
+            df[s_dur] = zero_time_delta
+            df[s_rec] = zero_time_delta
+            df[j_dur] = zero_time_delta
+            df[j_rec] = zero_time_delta
+
+            for row, s_from_val in df[s_from].items():
+                df.at[row, s_dur] = s_from_val - df.at[row, s_to]
+                df.at[row, j_dur] = df.at[row, j_from] - df.at[row, j_to]
+                s_recency = app_deadlines[df.at[row, 'App Term']] - df.at[row, s_from]
+                j_recency = app_deadlines[df.at[row, 'App Term']] - df.at[row, j_from]
+
+                if s_recency < df.at[row, s_rec]:
+                    df.at[row, s_rec] = s_recency
+                if j_recency < df.at[row, j_rec]:
+                    df.at[row, j_rec] = j_recency
+
+        df = df.drop(columns= s_from_cols + s_to_cols + j_from_cols + j_to_cols)
+        return df
+
+    @staticmethod
+    def fill_na_class_rank_size(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        This function replaces np.NaN values in the School 1 - 6 Class Rank and Class Size columns with the median of rank and size.
+        Some students who didn't report a class rank or size still listed other school information, so filling with median instead of 0.
+        """
+        rank_cols = ['School ' + str(i) + ' Class Rank (Numeric)' for i in range(1,7)]
+        size_cols = ['School ' + str(i) + ' Class Size (Numeric)' for i in range(1,7)]
+
+        for r, s in zip(rank_cols, size_cols):
+            df[s] = df[s].fillna(df[s].median())
+            df[r] = df[r].fillna(df[r].median())
+        return df
+    
+    @staticmethod
+    def encode_school_job_country(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        This function encodes the school and job regions (state or non-US city) as Boolean variable - 1 if is in Indiana, 0 if not.
+        The school and job countries are encoded as 3 categorical variables: HDI of country, Country Region (0 - 10 on world region), Income Tier (1-4 World Bank scale).
+        """
+        s_region_cols = ['School ' + str(i) + ' Region' for i in range(1,7)]
+        s_country_cols = ['School ' + str(i) + ' Country' for i in range(1,7)]
+        j_region_cols = ['Job ' + str(i) + ' Region' for i in range(1,7)]
+        j_country_cols = ['Job ' + str(i) + ' Country' for i in range(1,7)]
+
+        s_c_hdi_cols = ['School ' + str(i) + ' Country HDI' for i in range(1,7)]
+        s_c_reg_cols = ['School ' + str(i) + ' Country Region' for i in range(1,7)]
+        s_c_inc_cols = ['School ' + str(i) + ' Country Income' for i in range(1,7)]
+        j_c_hdi_cols = ['Job ' + str(i) + ' Country HDI' for i in range(1,7)]
+        j_c_reg_cols = ['Job ' + str(i) + ' Country Region' for i in range(1,7)]
+        j_c_inc_cols = ['Job ' + str(i) + ' Country Income' for i in range(1,7)]
+
+        with open('data/reference/country.json', 'r') as f:
+            country_features_json = json.load(f)
+        f.close()
+
+        hdi_map = {k: v['HDI'] for k, v in country_features_json.items()}
+        income_map = {k: v['income_tier'] for k, v in country_features_json.items()}
+        region_map = {k: v['region'] for k, v in country_features_json.items()}
+
+        i = 0
+        mapped_df = pd.DataFrame(index=df.index)
+
+        for s_r, s_c, j_r, j_c in zip(s_region_cols, s_country_cols, j_region_cols, j_country_cols):
+            mapped_df[s_c_hdi_cols[i]] = df[s_c].map(hdi_map).fillna(0)
+            mapped_df[s_c_inc_cols[i]] = df[s_c].map(income_map).fillna(0)
+            mapped_df[s_c_reg_cols[i]] = df[s_c].map(region_map).fillna(0)
+
+            mapped_df[j_c_hdi_cols[i]] = df[j_c].map(hdi_map).fillna(0)
+            mapped_df[j_c_inc_cols[i]] = df[j_c].map(income_map).fillna(0)
+            mapped_df[j_c_reg_cols[i]] = df[j_c].map(region_map).fillna(0)
+
+            for j, val in df[s_r].items():
+                if (val != 0) and (val == 'IN'):
+                    df.at[j, s_r] = 1
+                else:
+                    df.at[j, s_r] = 0
+            for j, val in df[j_r].items():
+                if (val != 0) and (val == 'IN'):
+                    df.at[j, j_r] = 1
+                else:
+                    df.at[j, j_r] = 0
+            i += 1
+
+        df = pd.concat([df, mapped_df], axis=1)
+        df = df.drop(columns=s_country_cols + j_country_cols)
+        return df
+    
+    @staticmethod
+    def encode_degree_conferred(df: pd.DataFrame, app_deadlines: dict[str, datetime]) -> pd.DataFrame:
+        """
+        This function adds a Boolean variable to indicate if student graduated from each school listed on application.
+        It also updates the degree conferred field to be the difference between the application deadline for each term
+        and the date of degree conferral.
+        """
+        degree_cols = ['School ' + str(i) + ' Degree Conferred' for i in range(1,7)]
+        earned_cols = ['School ' + str(i) + ' Degree Conferred (Binary)' for i in range(1,7)]
+        df.loc[:, earned_cols] = 0
+
+        for i, c in enumerate(degree_cols):
+            df[c] = df[c].fillna(timedelta(-1, -1, -1, -1, -1))
+            for j, val in df[c].items():
+                if (val != timedelta(-1, -1, -1, -1, -1)):
+                    df.at[j, earned_cols[i]] = 1
+                    df.at[j, c] = app_deadlines[df.at[j, "App Term"]] - df.at[j, c]
+        return df
+    
 class JobDataHelpers:
     @staticmethod
-    def encode_job_description():
-        #TODO
-        pass
+    def clean_one_description(j_desc: str) -> str:
+        """
+        This function cleans valid job descriptions by removing punctuation.
+        """
+        def digit_to_word(match):
+            num_str = match.group()
+            try:
+                return num2words(int(num_str))
+            except TypeError:
+                return num_str
+    
+        if j_desc != 0:
+            j_desc = re.sub(r'[\n•\-?*]', ' ', str(j_desc))
+            j_desc = re.sub(r'\b\d+\b', digit_to_word, j_desc)
+            j_desc = re.sub(r'\s+', ' ', j_desc).strip()
+            j_desc = j_desc.lower()
+        return j_desc
+    
+    @staticmethod
+    def encode_job_description(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        This function returns sets the BERT embedding for each job description listed on application.
+        """
+        desc_cols = ['Job ' + str(i) + ' Description' for i in range(1,7)]
+        unadded = set()
 
-# Global/main function in file
+        for c in desc_cols:
+            df[c].fillna(0)
+            df[c] = df[c].apply(lambda x: JobDataHelpers.clean_one_description(x))
+
+            for i, val in df[c].items():
+                unadded.add(val)
+        with open('descriptions.txt', 'w') as f:
+            for s in unadded:
+                f.write(str(s)+'\n')
+        f.close()
+        return df
+
+    @staticmethod
+    def embed_text(j_title: str, model: KeyedVectors) -> np.array:
+        """
+        This function cleans an individual job title listed in the application.
+        It removes punctuation and converts ints to strs. It also returns the
+        Word2Vec averaged embedding for all words in the job title.
+
+        :param j_title: individual job title applicant listed
+        :type j_title: str
+        :param model: Google Word2Vec pretrained model
+        :type model: gensim.keyedvectors.KeyedVectors
+
+        :return: averaged Word2Vec embeddings of all words in job title
+        :rtype: np.array
+        """
+        if j_title == 0:
+            return np.zeros(model.vector_size)
+        
+        words = str(j_title).split()
+        cleaned = []
+
+        for w in words:
+            t =  re.sub(r'[^\w]', "", w)
+            if t.isdigit():
+                t = num2words(int(t))
+            cleaned.append(t)
+
+        vecs = [model[w] for w in cleaned if w in model]
+        if not vecs:
+            return np.zeros(model.vector_size)
+        
+        return np.mean(vecs, axis=0)
+    
+    @staticmethod
+    def encode_job_title(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        This function sets the average Word2Vec embedding for each job title listed in application
+        using the pretrained Google model.
+        """
+        title_cols = ['Job ' + str(i) + ' Title' for i in range(1,7)]
+        missing_cols = ['Job ' + str(i) + ' Missing' for i in range(1,7)]
+        path = 'data/reference/GoogleNews-vectors-negative300.bin.gz'
+        model = KeyedVectors.load_word2vec_format(path, binary=True)
+        job_enc_cols = ['Job ' + str(i) + ' Title Enc' for i in range(1,7)]
+
+        for c in missing_cols:
+            df[c] = 0
+
+        for c in title_cols:
+            df[c] = df[c].fillna(0)
+            df[c] = df[c].str.lower().replace(',', '').replace('.', '')
+
+        for c in job_enc_cols:
+            df[c] = None
+
+        mask = (df[title_cols] == 0).all(axis=1)
+        df.loc[mask, missing_cols] = 1
+
+        for c_idx, c in enumerate(title_cols):
+            enc_col = job_enc_cols[c_idx]
+            df[enc_col] = df[c].apply(lambda x: JobDataHelpers.embed_text(x, model))
+        
+        df = df.drop(columns=title_cols)
+        return df
+    
+    @staticmethod
+    def encode_job_org(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        This function cleans the job organization strings. Later, before feeding into models,
+        job organizations will be transformed into target or learned embedding on training data only.
+        """
+        org_cols = ['Job ' + str(i) + ' Organization' for i in range(1,7)]
+        df['Purdue Internal'] = 0
+
+        for c in org_cols:
+            df[c] = df[c].fillna(0)
+            df[c] = df[c].str.lower()
+        df['Purdue Internal'] = df[org_cols].apply(lambda row: row.astype(str).str.contains('purdue')).any(axis=1).astype(int)
+        return df
+    
+    @staticmethod
+    def fill_na_dir_reports(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        This functions fills in np.NaN direct reports for Jobs 1-6 with 0 if not reported.
+        """
+        dir_rep_cols = ['Job ' + str(i) + ' Direct Reports' for i in range(1,7)]
+
+        for d in dir_rep_cols:
+            df[d] = df[d].fillna(0)
+        return df
+    
+# Main Function
 def load_application_data(file_path: str)->Tuple[pd.DataFrame, dict]:
     """
     This function parses the Purdue's online ECE Master's program application data for Fall 2020 - Spring 2024 semesters
@@ -951,9 +1280,6 @@ def load_application_data(file_path: str)->Tuple[pd.DataFrame, dict]:
     :type file_path: str
 
     :return: All valid Master's applicants' application information (skips those who did not finish application),
-             Application information for all applicants who were admitted (including those who do not choose to attend)
-             Application information for all applicants who were admitted and accepted their admission (includes those who deferred, changed terms, initially declied admission)
-             Application information for all applicants who were rejected,
              Dictionary mapping App ID to PUID for students who were admitted and accepted their admission
     :rtype: Tuple[pd.DataFrame, Dictionary]
     """
@@ -968,6 +1294,15 @@ def load_application_data(file_path: str)->Tuple[pd.DataFrame, dict]:
     
     all_lang = {'Japanese', 'Kazakh', 'Sinahalese', 'Icelandic', 'Persian', 'Chinese', 'Farsi', 'Spanish', 'MISSING', 'Hebrew', 'German', 'Arabic', 'Korean', 'English', 
                 'Portuguese', 'Slovenian', 'Kannada', 'French'}
+    
+    app_deadlines = {
+            'Fall 2020': datetime(2020, 7, 31, 11, 59, 59),
+            'Fall 2021': datetime(2021, 7, 15, 11, 59, 59),
+            'Fall 2022': datetime(2022, 7, 15, 11, 59, 59),
+            'Fall 2023': datetime(2023, 7, 15, 11, 59, 59),
+            'Fall 2024': datetime(2024, 7, 15, 11, 59, 59),
+            'Summer 2024': datetime(2024, 12, 15, 11, 59, 59)
+        }
 
     df = MiscDataHelpers.drop_columns(df)
     df = MiscDataHelpers.process_home_location(df)
@@ -979,34 +1314,19 @@ def load_application_data(file_path: str)->Tuple[pd.DataFrame, dict]:
     df = SchoolDataHelpers.encode_all_majors(df)
     df = SchoolDataHelpers.encode_all_degree_levels(df)
     df = SchoolDataHelpers.clean_all_gpa(df)
+    df = SchoolDataHelpers.compute_last_edit_delta(df, app_deadlines)
+    df = SchoolDataHelpers.compute_school_job_duration_recency(df, app_deadlines)
+    df = SchoolDataHelpers.fill_na_class_rank_size(df)
+    df = SchoolDataHelpers.encode_school_job_country(df)
+    df = SchoolDataHelpers.encode_degree_conferred(df, app_deadlines)
+    df = JobDataHelpers.fill_na_dir_reports(df)
+    df = JobDataHelpers.encode_job_title(df)
+    df = JobDataHelpers.encode_job_org(df)
+    df = JobDataHelpers.encode_job_description(df)
+
+    #print(list(df.columns))
 
     return df, app_to_puid
 
 if __name__ == '__main__':
-    _ = load_application_data("data/app_data/Fall20thru24_MSECEOnline_All.xlsx")
-
-    # TODO: Following data is categorical still for each 
-    # location: Optional[Location] = None
-    # schools: List[School] = None - Make all schools the same
-    # jobs: List[Job] = None
-
-    # start: Optional[pd.Timestamp] = None
-    # end: Optional[pd.Timestamp] = None
-    # duration: Optional[pd.Timestamp] = None
-    # company: Optional[str] = None
-    # location: Optional[Location] = None
-    # title: Optional[str] = None
-    # description: Optional[str] = None
-
-    # name: Optional[str] = None
-    # start: Optional[pd.Timestamp] = None
-    # end: Optional[pd.Timestamp] = None
-    # duration: Optional[pd.Timestamp] = None
-    # major: Optional[str] = None
-    # degree: Optional[str] = None
-    # grad_date: Optional[pd.Timestamp] = None
-    # location: Optional[Location] = None
-
-    # city: Optional[str] = None
-    # region: Optional[str] = None
-    # country: Optional[str] = None
+    _, _ = load_application_data("data/raw/app_data/Fall20thru24_MSECEOnline_All.xlsx")

@@ -233,5 +233,135 @@
     "region": 7,
     "HDI": 0.685,
     "income_tier": 2
+  },
+  "Belgium": {
+    "region": 3,
+    "HDI": 0.951,
+    "income_tier": 4
+  },
+  "Colombia": {
+    "region": 2,
+    "HDI": 0.788,
+    "income_tier": 3
+  },
+  "Kazakhstan": {
+    "region": 4,
+    "HDI": 0.837,
+    "income_tier": 3
+  },
+  "Austria": {
+    "region": 3,
+    "HDI": 0.93,
+    "income_tier": 4
+  },
+  "Philippines": {
+    "region": 9,
+    "HDI": 0.72,
+    "income_tier": 2
+  },
+  "Cambodia": {
+    "region": 9,
+    "HDI": 0.606,
+    "income_tier": 2
+  },
+  "Sri Lanka": {
+    "region": 7,
+    "HDI": 0.776,
+    "income_tier": 2
+  },
+  "Ireland": {
+    "region": 3,
+    "HDI": 0.949,
+    "income_tier": 4
+  },
+  "Sudan": {
+    "region": 6,
+    "HDI": 0.511,
+    "income_tier": 1
+  },
+  "Czech Republic": {
+    "region": 3,
+    "HDI": 0.915,
+    "income_tier": 4
+  },
+  "Singapore": {
+    "region": 9,
+    "HDI": 0.946,
+    "income_tier": 4
+  },
+  "Costa Rica": {
+    "region": 1,
+    "HDI": 0.833,
+    "income_tier": 3
+  },
+  "Kenya": {
+    "region": 6,
+    "HDI": 0.628,
+    "income_tier": 2
+  },
+  "Morocco": {
+    "region": 5,
+    "HDI": 0.71,
+    "income_tier": 2
+  },
+  "Tunisia": {
+    "region": 5,
+    "HDI": 0.746,
+    "income_tier": 2
+  },
+  "Venezuela": {
+    "region": 2,
+    "HDI": 0.709,
+    "income_tier": 2
+  },
+  "Congo (Kinshasa)": {
+    "region": 6,
+    "HDI": 0.649,
+    "income_tier": 1
+  },
+  "Lebanon": {
+    "region": 5,
+    "HDI": 0.752,
+    "income_tier": 2
+  },
+  "Trinidad and Tobago": {
+    "region": 1,
+    "HDI": 0.807,
+    "income_tier": 4
+  },
+  "Uganda": {
+    "region": 6,
+    "HDI": 0.582,
+    "income_tier": 1
+  },
+  "Italy": {
+    "region": 3,
+    "HDI": 0.915,
+    "income_tier": 4
+  },
+  "Honduras": {
+    "region": 1,
+    "HDI": 0.645,
+    "income_tier": 2
+  },
+  "Syria": {
+    "region": 5,
+    "HDI": 0.564,
+    "income_tier": 1
+  },
+  "Malaysia": {
+    "region": 9,
+    "HDI": 0.819,
+    "income_tier": 3
+  },
+  "Bolivia": {
+    "region": 2,
+    "HDI": 0.733,
+    "income_tier": 2
+  },
+  "Switzerland": {
+    "region": 3,
+    "HDI": 0.97,
+    "income_tier": 4
   }
 }
