@@ -1140,7 +1140,7 @@ class SchoolDataHelpers:
     
 class JobDataHelpers:
     @staticmethod
-    def clean_one_description(j_desc: str) -> str:
+    def clean_one_description(j_desc: str, token: BertTokenizer, model: BertModel) -> str:
         """
         This function cleans valid job descriptions by removing punctuation.
         """
@@ -1151,12 +1151,22 @@ class JobDataHelpers:
             except TypeError:
                 return num_str
     
-        if j_desc != 0:
+        hidden_size = 768
+
+        if (j_desc != 0) or (j_desc != '0'):
             j_desc = re.sub(r'[\n•\-?*]', ' ', str(j_desc))
             j_desc = re.sub(r'\b\d+\b', digit_to_word, j_desc)
             j_desc = re.sub(r'\s+', ' ', j_desc).strip()
             j_desc = j_desc.lower()
-        return j_desc
+
+            if j_desc.strip() == "":
+                return None, None
+            
+            inputs = token(j_desc, return_tensors="pt")
+            outputs = model(**inputs)
+            pooler_output = outputs.pooler_output
+            return pooler_output.detach().cpu().numpy(), pooler_output
+        return None, None
     
     @staticmethod
     def encode_job_description(df: pd.DataFrame) -> pd.DataFrame:
@@ -1164,18 +1174,24 @@ class JobDataHelpers:
         This function returns sets the BERT embedding for each job description listed on application.
         """
         desc_cols = ['Job ' + str(i) + ' Description' for i in range(1,7)]
-        unadded = set()
+        np_cols = ['Job ' + str(i) + ' Description (np.array)' for i in range(1,7)]
+        tensor_cols = ['Job ' + str(i) + ' Description (tensor)' for i in range(1,7)]
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        model = BertModel.from_pretrained('bert-base-uncased')
 
-        for c in desc_cols:
-            df[c].fillna(0)
-            df[c] = df[c].apply(lambda x: JobDataHelpers.clean_one_description(x))
+        for desc_col, np_col, tensor_col in zip(desc_cols, np_cols, tensor_cols):
+            df[desc_col].fillna(0)
+            df[np_col] = [np.zeros(768, dtype=np.float32) for _ in range(1276)]
+            df[tensor_col] = [torch.zeros(768) for _ in range(1276)]
 
-            for i, val in df[c].items():
-                unadded.add(val)
-        with open('descriptions.txt', 'w') as f:
-            for s in unadded:
-                f.write(str(s)+'\n')
-        f.close()
+            for idx, val in df[desc_col].items():
+                np_arr, t_torch = JobDataHelpers.clean_one_description(val, tokenizer, model)
+
+                if np_arr is not None:
+                    df.at[idx, np_col] = np_arr
+                if t_torch is not None:
+                    df.at[idx, tensor_col] = t_torch
+        df.drop(columns = desc_cols)
         return df
 
     @staticmethod
@@ -1270,7 +1286,7 @@ class JobDataHelpers:
         return df
     
 # Main Function
-def load_application_data(file_path: str)->Tuple[pd.DataFrame, dict]:
+def load_application_data(file_path: str) -> pd.DataFrame:
     """
     This function parses the Purdue's online ECE Master's program application data for Fall 2020 - Spring 2024 semesters
     and stores the data into dictionaries based on admission decision. These dictionaries will later be modified to add course
@@ -1279,13 +1295,11 @@ def load_application_data(file_path: str)->Tuple[pd.DataFrame, dict]:
     :param file_path: Path to Excel file storing application data
     :type file_path: str
 
-    :return: All valid Master's applicants' application information (skips those who did not finish application),
-             Dictionary mapping App ID to PUID for students who were admitted and accepted their admission
-    :rtype: Tuple[pd.DataFrame, Dictionary]
+    :return: All valid Master's applicants' application information (skips those who did not finish application)
+    :rtype: pd.DataFrame
     """
     # Store application data for semesters Fall 2020 to Spring 2024
     df = pd.read_excel(file_path)
-    app_to_puid = defaultdict(int)
     
     countries = {'Argentina', 'Nepal', 'Netherlands', 'Mexico', 'Croatia', 'Ecuador', 'Israel', 'Brazil', 'Cayman Islands', 'Iceland', 'Palestine', 'Hong Kong S.A.R.', 'Australia', 
         'Ethiopia', 'China', 'Ghana', 'Turkey', 'United States', 'Bangladesh', 'United Arab Emirates', 'Pakistan', 'Slovenia', 'South Korea', 'Rwanda', 'Zambia', 'Panama', 
@@ -1322,11 +1336,48 @@ def load_application_data(file_path: str)->Tuple[pd.DataFrame, dict]:
     df = JobDataHelpers.fill_na_dir_reports(df)
     df = JobDataHelpers.encode_job_title(df)
     df = JobDataHelpers.encode_job_org(df)
-    df = JobDataHelpers.encode_job_description(df)
+    #df = JobDataHelpers.encode_job_description(df)
 
-    #print(list(df.columns))
+    df.to_excel('data/cleaned/processed_admissions.xlsx', index=False)
+    return df
 
-    return df, app_to_puid
+def clean_job_descriptions_looped(file_path: str) -> pd.DataFrame:
+    """
+    This function encodes the job descriptions to a numpy array and PyTorch tensor using the pre-trained BERT model.
+
+    :return: Dataframe with job descriptions embedded for specified rows
+    :rtype: pd.DataFrame
+    """
+    df = pd.read_excel(file_path)
+    # desc_cols = ['Job ' + str(i) + ' Description' for i in range(1,7)]
+    # np_cols = ['Job ' + str(i) + ' Description (np.array)' for i in range(1,7)]
+    # tensor_cols = ['Job ' + str(i) + ' Description (tensor)' for i in range(1,7)]
+    # tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    # model = BertModel.from_pretrained('bert-base-uncased')
+    # hidden_size = 768
+    # num_apps = len(df)
+
+    # for desc_col, np_col, tensor_col in zip(desc_cols, np_cols, tensor_cols):
+    #     df[desc_col].fillna(0)
+    #     df[np_col] = [np.zeros(hidden_size, dtype=np.float32) for _ in range(num_apps)]
+    #     df[tensor_col] = [torch.zeros(hidden_size) for _ in range(num_apps)]
+    #     i = 0
+    #     for idx, val in df[desc_col].items():
+    #         np_arr, t_torch = JobDataHelpers.clean_one_description(val, tokenizer, model)
+
+    #         if np_arr is not None:
+    #             df.at[idx, np_col] = np_arr
+    #         if t_torch is not None:
+    #             df.at[idx, tensor_col] = t_torch
+    #         i += 1
+    #         if i == 100:
+    #             i = 0
+    #             time.sleep(5)
+    #     time.sleep(5)
+    # df.drop(columns = desc_cols)
+    return df
 
 if __name__ == '__main__':
-    _, _ = load_application_data("data/raw/app_data/Fall20thru24_MSECEOnline_All.xlsx")
+    _ = clean_job_descriptions_looped('data/cleaned/processed_admissions.xlsx')
+
+
