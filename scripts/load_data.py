@@ -32,7 +32,7 @@ import json
 from datetime import datetime
 from gensim.models.keyedvectors import KeyedVectors
 from num2words import num2words
-from transformers import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModel, AutoModelForMaskedLM, AutoTokenizer
 import torch
 
 class MiscDataHelpers:
@@ -161,7 +161,7 @@ class MiscDataHelpers:
 
         # One Hot Encoding of Country
         df['Country'] = df['Country'].fillna('MISSING')
-        df = pd.get_dummies(df, columns=['Country'])
+        df = pd.get_dummies(df, columns=['Country'], dtype=int)
 
         # Categorize Citizenship
         citizenship_mapping = {'None of the Above':'0', np.nan:'0', 'Asylee or Refugee':'1', 'Permanent Resident Non-US Ctzn':'2', 'U.S. Citizen':'3', 'International':'4'}
@@ -895,15 +895,17 @@ class SchoolDataHelpers:
         """
         This function one hot encodes school language of instruction in columns School 1-6 Language.
         """
+        mapping = {
+            'Chinese - Cantonese': 'Chinese',
+            'Chinese - Mandarin': 'Chinese',
+            'Persian (Farsi)': 'Farsi'
+        }
         language_cols = ['School ' + str(i) + ' Language' for i in range(1,7)]
+
         for i, c in enumerate(language_cols):
             df[c] = df[c].fillna('MISSING')
-            for idx, val in df[c].items():
-                if (val == 'Chinese - Cantonese') or (val == 'Chinese - Mandarin'):
-                    df.at[idx, val] = 'Chinese'
-                elif (val == 'Persian (Farsi)'):
-                    df.at[idx, val] = 'Farsi'
-            df = pd.get_dummies(df, columns=[c], prefix=f'School_{i}_Lang')
+            df[c] = df[c].replace(mapping)
+            df = pd.get_dummies(df, columns=[c], prefix=f'School_{i+1}_Lang', dtype=int)
         return df
     
     @staticmethod
@@ -1024,7 +1026,8 @@ class SchoolDataHelpers:
         j_to_cols = ['Job ' + str(i) + ' To' for i in range(1, 7)]
         j_duration_cols = ['Job ' + str(i) + ' Duration' for i in range(1, 7)]
         j_recency_cols = ['Job '+ str(i) + ' Recency' for i in range(1, 7)]
-        zero_time_delta = app_deadlines['Fall 2020'] - app_deadlines['Fall 2020']
+        zero_timedelta_explicit = timedelta(days=0, seconds=0, microseconds=0,
+                                    milliseconds=0, minutes=0, hours=0, weeks=0)
 
         for s_from, s_to, s_dur, s_rec, j_from, j_to, j_dur, j_rec in zip(s_from_cols, s_to_cols, s_duration_cols, s_recency_cols, j_from_cols, j_to_cols, j_duration_cols, j_recency_cols):
             df[s_from].fillna(0)
@@ -1032,10 +1035,10 @@ class SchoolDataHelpers:
             df[j_from].fillna(0)
             df[j_to].fillna(0)
 
-            df[s_dur] = zero_time_delta
-            df[s_rec] = zero_time_delta
-            df[j_dur] = zero_time_delta
-            df[j_rec] = zero_time_delta
+            df[s_dur] = zero_timedelta_explicit
+            df[s_rec] = zero_timedelta_explicit
+            df[j_dur] = zero_timedelta_explicit
+            df[j_rec] = zero_timedelta_explicit
 
             for row, s_from_val in df[s_from].items():
                 df.at[row, s_dur] = s_from_val - df.at[row, s_to]
@@ -1115,8 +1118,14 @@ class SchoolDataHelpers:
                     df.at[j, j_r] = 0
             i += 1
 
+            df[s_c] = df[s_c].fillna('MISSING')
+            df[j_c] = df[j_c].fillna('MISSING')
+
+            # One Hot Encoding of Country
+            df = pd.get_dummies(df, columns=[s_c], dtype=int)
+            df = pd.get_dummies(df, columns=[j_c], dtype=int)
+
         df = pd.concat([df, mapped_df], axis=1)
-        df = df.drop(columns=s_country_cols + j_country_cols)
         return df
     
     @staticmethod
@@ -1140,9 +1149,9 @@ class SchoolDataHelpers:
     
 class JobDataHelpers:
     @staticmethod
-    def clean_one_description(j_desc: str, token: BertTokenizer, model: BertModel) -> str:
+    def clean_one_description(j_desc: str, token: AutoTokenizer, model: AutoModelForMaskedLM) -> List[float]:
         """
-        This function cleans valid job descriptions by removing punctuation.
+        This function cleans valid job descriptions and organizations by removing punctuation.
         """
         def digit_to_word(match):
             num_str = match.group()
@@ -1150,23 +1159,34 @@ class JobDataHelpers:
                 return num2words(int(num_str))
             except TypeError:
                 return num_str
-    
-        hidden_size = 768
 
-        if (j_desc != 0) or (j_desc != '0'):
-            j_desc = re.sub(r'[\n•\-?*]', ' ', str(j_desc))
-            j_desc = re.sub(r'\b\d+\b', digit_to_word, j_desc)
-            j_desc = re.sub(r'\s+', ' ', j_desc).strip()
-            j_desc = j_desc.lower()
+        if (j_desc == 0) or (j_desc == '0'):
+            return None
 
-            if j_desc.strip() == "":
-                return None, None
+        # Clean text
+        j_desc = re.sub(r'[\n•\-?*]', ' ', str(j_desc))
+        j_desc = re.sub(r'\b\d+\b', digit_to_word, j_desc)
+        j_desc = re.sub(r'\s+', ' ', j_desc).strip()
+        j_desc = j_desc.lower()
+
+        if j_desc.strip() == "":
+            return None
             
-            inputs = token(j_desc, return_tensors="pt")
+        inputs = token.batch_encode_plus([j_desc], 
+                                         padding=True,
+                                         truncation=True,
+                                         return_tensors="pt",
+                                         add_special_tokens=True #Addds CLS and SEP to start & end of sentence
+                                         )
+        inputs = {k: v.cpu() for k, v in inputs.items()}
+        model = model.cpu()
+
+        with torch.no_grad():
             outputs = model(**inputs)
-            pooler_output = outputs.pooler_output
-            return pooler_output.detach().cpu().numpy(), pooler_output
-        return None, None
+            pooler_output = outputs.last_hidden_state.mean(dim=1)
+            pooler_output = pooler_output.cpu()
+            return pooler_output.squeeze().tolist()
+        return None
     
     @staticmethod
     def encode_job_description(df: pd.DataFrame) -> pd.DataFrame:
@@ -1232,7 +1252,7 @@ class JobDataHelpers:
         """
         This function sets the average Word2Vec embedding for each job title listed in application
         using the pretrained Google model.
-        """
+        """    
         title_cols = ['Job ' + str(i) + ' Title' for i in range(1,7)]
         missing_cols = ['Job ' + str(i) + ' Missing' for i in range(1,7)]
         path = 'data/reference/GoogleNews-vectors-negative300.bin.gz'
@@ -1265,6 +1285,22 @@ class JobDataHelpers:
         This function cleans the job organization strings. Later, before feeding into models,
         job organizations will be transformed into target or learned embedding on training data only.
         """
+        def digit_to_word(match):
+            num_str = match.group()
+            try:
+                return num2words(int(num_str))
+            except TypeError:
+                return num_str
+            
+        def normalize_name(name):
+            if name == 0:
+                return name
+            name = re.sub(r'\b\d+\b', digit_to_word, str(name))
+            name = re.sub(r'[^a-z0-9 ]+', '', name)  # remove punctuation
+            name = re.sub(r'\b(inc|corp|llc|ltd|co|corporation)\b', '', name)
+            name = re.sub(r'\s+', ' ', name)  # collapse spaces
+            return name.strip()
+        
         org_cols = ['Job ' + str(i) + ' Organization' for i in range(1,7)]
         df['Purdue Internal'] = 0
 
@@ -1272,6 +1308,9 @@ class JobDataHelpers:
             df[c] = df[c].fillna(0)
             df[c] = df[c].str.lower()
         df['Purdue Internal'] = df[org_cols].apply(lambda row: row.astype(str).str.contains('purdue')).any(axis=1).astype(int)
+
+        for c in org_cols:
+            df[c] = df[c].apply(normalize_name)
         return df
     
     @staticmethod
@@ -1285,8 +1324,7 @@ class JobDataHelpers:
             df[d] = df[d].fillna(0)
         return df
     
-# Main Function
-def load_application_data(file_path: str) -> pd.DataFrame:
+def load_application_data(file_path: str) -> None:
     """
     This function parses the Purdue's online ECE Master's program application data for Fall 2020 - Spring 2024 semesters
     and stores the data into dictionaries based on admission decision. These dictionaries will later be modified to add course
@@ -1300,14 +1338,6 @@ def load_application_data(file_path: str) -> pd.DataFrame:
     """
     # Store application data for semesters Fall 2020 to Spring 2024
     df = pd.read_excel(file_path)
-    
-    countries = {'Argentina', 'Nepal', 'Netherlands', 'Mexico', 'Croatia', 'Ecuador', 'Israel', 'Brazil', 'Cayman Islands', 'Iceland', 'Palestine', 'Hong Kong S.A.R.', 'Australia', 
-        'Ethiopia', 'China', 'Ghana', 'Turkey', 'United States', 'Bangladesh', 'United Arab Emirates', 'Pakistan', 'Slovenia', 'South Korea', 'Rwanda', 'Zambia', 'Panama', 
-        'Russia', 'Egypt', 'Saudi Arabia', 'Spain', 'Iran', 'Japan', 'Chile', 'Finland', 'Canada', 'Germany', 'Taiwan', 'France', 'Vietnam', 'Kuwait', 'New Zealand', 'United Kingdom', 
-        'Jordan', 'Nigeria', 'Portugal', 'South Africa', 'India', 'MISSING'}
-    
-    all_lang = {'Japanese', 'Kazakh', 'Sinahalese', 'Icelandic', 'Persian', 'Chinese', 'Farsi', 'Spanish', 'MISSING', 'Hebrew', 'German', 'Arabic', 'Korean', 'English', 
-                'Portuguese', 'Slovenian', 'Kannada', 'French'}
     
     app_deadlines = {
             'Fall 2020': datetime(2020, 7, 31, 11, 59, 59),
@@ -1336,48 +1366,59 @@ def load_application_data(file_path: str) -> pd.DataFrame:
     df = JobDataHelpers.fill_na_dir_reports(df)
     df = JobDataHelpers.encode_job_title(df)
     df = JobDataHelpers.encode_job_org(df)
-    #df = JobDataHelpers.encode_job_description(df)
-
     df.to_excel('data/cleaned/processed_admissions.xlsx', index=False)
-    return df
+    pass
 
-def clean_job_descriptions_looped(file_path: str) -> pd.DataFrame:
+def clean_job_descriptions_looped(file_path: str) -> None:
     """
-    This function encodes the job descriptions to a numpy array and PyTorch tensor using the pre-trained BERT model.
+    This function embeds the job descriptions and organizations to a numpy array and PyTorch tensor using the pre-trained BERT model.
 
     :return: Dataframe with job descriptions embedded for specified rows
     :rtype: pd.DataFrame
     """
     df = pd.read_excel(file_path)
-    # desc_cols = ['Job ' + str(i) + ' Description' for i in range(1,7)]
-    # np_cols = ['Job ' + str(i) + ' Description (np.array)' for i in range(1,7)]
-    # tensor_cols = ['Job ' + str(i) + ' Description (tensor)' for i in range(1,7)]
-    # tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    # model = BertModel.from_pretrained('bert-base-uncased')
-    # hidden_size = 768
-    # num_apps = len(df)
+    desc_cols = ['Job ' + str(i) + ' Description' for i in range(1,7)]
+    desc_embed_cols = ['Job ' + str(i) + ' Description (embed)' for i in range(1,7)]
 
-    # for desc_col, np_col, tensor_col in zip(desc_cols, np_cols, tensor_cols):
-    #     df[desc_col].fillna(0)
-    #     df[np_col] = [np.zeros(hidden_size, dtype=np.float32) for _ in range(num_apps)]
-    #     df[tensor_col] = [torch.zeros(hidden_size) for _ in range(num_apps)]
-    #     i = 0
-    #     for idx, val in df[desc_col].items():
-    #         np_arr, t_torch = JobDataHelpers.clean_one_description(val, tokenizer, model)
+    org_cols = ['Job ' + str(i) + ' Organization' for i in range(1,7)]
+    org_embed_cols = ['Job ' + str(i) + ' Organization (embed)' for i in range(1,7)]
 
-    #         if np_arr is not None:
-    #             df.at[idx, np_col] = np_arr
-    #         if t_torch is not None:
-    #             df.at[idx, tensor_col] = t_torch
-    #         i += 1
-    #         if i == 100:
-    #             i = 0
-    #             time.sleep(5)
-    #     time.sleep(5)
-    # df.drop(columns = desc_cols)
-    return df
+    # Used this reference: https://www.geeksforgeeks.org/nlp/how-to-generate-word-embedding-using-bert/
+    random_seed = 42
+    random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(random_seed)
+
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    model = BertModel.from_pretrained('bert-base-uncased')
+    model.eval()
+    hidden_size = 768
+    num_apps = len(df)
+
+    for desc_col, e_col in zip(desc_cols, desc_embed_cols):
+        df[desc_col].fillna(0)
+        df[e_col] = [np.zeros(hidden_size, dtype=np.float32) for _ in range(num_apps)]
+        for idx, val in df[desc_col].items():
+            embedding = JobDataHelpers.clean_one_description(val, tokenizer, model)
+            if embedding is not None:
+                df.at[idx, e_col] = embedding
+
+    for org_col, e_col in zip(org_cols, org_embed_cols):
+        df[org_col].fillna(0)
+        df[e_col] = [np.zeros(hidden_size, dtype=np.float32) for _ in range(num_apps)]
+        for idx, val in df[org_col].items():
+            embedding = JobDataHelpers.clean_one_description(val, tokenizer, model)
+            if embedding is not None:
+                df.at[idx, e_col] = embedding
+
+    df = df.drop(columns = desc_cols)
+    df = df.drop(columns = org_cols)
+    df.to_excel(file_path, index=False)
+    pass
 
 if __name__ == '__main__':
-    _ = clean_job_descriptions_looped('data/cleaned/processed_admissions.xlsx')
+    load_application_data('data/raw/app_data/Fall20thru24_MSECEOnline_All.xlsx')
+    clean_job_descriptions_looped('data/cleaned/processed_admissions.xlsx')
 
 
