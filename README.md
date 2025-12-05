@@ -1,20 +1,24 @@
 # Master's Thesis: Early Prediction of Student Attrition and Admissions Decisions
 
 ## Folder Structure
-/data
-    - /cleaned
-        - app_to_puid.json: maps application ID to PUID
-        - data.parquet: preprocesssed admissions data
-    - /reference
-        - school_to_rank.json: maps school name mentioned in admissions application to numerical tier for preprocessing of data
-        - ace-institutional-classifications.xlsx: from Carnegie Classifications website, used to tier US schools
-        - GoogleNews-vectors-negative300.bin.gz: downloaded WordVectors model, used to embed job titles
-        - qs_rankings.xlsx: downloaded from QS website, used to tier international schools
-        - country.json: maps country name listed in application to HDI, income tier (1-4 from World Bank), and region in world
-/model
-    - /regression
-        - /linear_regression
-        - /lasso_regression
-    Each model directory includes script to build model, as well as .json with model results with and without feature extraction.
-- scripts/
-    - load_data.py: script to preprocess admissions data
+
+/data  
+&nbsp;&nbsp;&nbsp;&nbsp;/cleaned  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- app_to_puid.json: maps application ID to PUID  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- data.parquet: preprocessed admissions data  
+
+&nbsp;&nbsp;&nbsp;&nbsp;/reference  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- school_to_rank.json: maps school name to numerical tier  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- ace-institutional-classifications.xlsx: Carnegie Classifications data  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- GoogleNews-vectors-negative300.bin.gz: Word2Vec model for job title embeddings  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- qs_rankings.xlsx: QS world university rankings  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- country.json: maps country to HDI, income tier, region  
+
+/model  
+&nbsp;&nbsp;&nbsp;&nbsp;/regression  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/linear_regression  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/lasso_regression  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Each model directory includes build scripts and `.json` result files  
+
+/scripts  
+&nbsp;&nbsp;&nbsp;&nbsp;- load_data.py: preprocesses admissions data
