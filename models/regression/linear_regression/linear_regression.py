@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, accuracy_score, mean_squared_error
+from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -43,7 +43,7 @@ def kernel_density_plot(df: pd.DataFrame) -> None:
             ax.plot(x_data, df[feature_cols[i]])
             ax.set_title(f'Feature {i+1, c}')
             ax.set_xlabel('Student Num')
-            ax.set_ylabel('{c}')
+            ax.set_ylabel(f'{c}')
 
             if (plot_num == plots_per_page) or (i == (len(feature_cols) - 1)):
                 pdf.savefig(fig)
@@ -157,5 +157,7 @@ def lr_on_important_features():
     #              "Job 4 Organization (embed)", "Job 6 Organization (embed)"]
     
 if __name__ == '__main__':
-    #print_important_features("models/linear_regression.json")
-    lr_on_important_features()
+    table = pq.read_table('data/cleaned/data.parquet')
+    df = table.to_pandas()
+    df = df.drop(columns=['App ID', 'PUID', 'Enrolled (Binary)', 'Admitted (Binary)'])
+    kernel_density_plot(df)
