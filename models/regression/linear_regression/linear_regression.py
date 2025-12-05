@@ -125,7 +125,7 @@ def print_important_features(file_path: str) -> None:
     with open(file_path, 'r') as f:
         for line in f:
             x = json.loads(line)
-            if x["r2"] < -0.8854497766703286:
+            if x["r2"] > -0.8854497766703286:
                 print(x["feature_dropped"])
     f.close()
     pass
@@ -138,12 +138,24 @@ def lr_on_important_features():
     y_pd = df['Admitted (Binary)']
     X_pd = df.drop(columns=['Admitted (Binary)'])
     X_pd = X_pd.fillna(0)
-    embedding_cols = ["Job 2 Title Enc", "Job 3 Title Enc", "Job 4 Title Enc", "Job 5 Title Enc", "Job 1 Description (embed)", "Job 2 Description (embed)", 
-                      "Job 3 Description (embed)", "Job 4 Description (embed)", "Job 1 Organization (embed)", "Job 2 Organization (embed)", "Job 5 Organization (embed)"]
-    X_pd = X_pd[embedding_cols]
+
+    drop_cols = ["Job 1 Title Enc", "Job 6 Title Enc", "Job 5 Description (embed)", "Job 6 Description (embed)", "Job 3 Organization (embed)", 
+                 "Job 4 Organization (embed)", "Job 6 Organization (embed)"]
+    embedding_cols = ["Job " + str(i) + ' Title Enc' for i in range(2,6)]
+    embedding_cols.extend(['Job ' + str(i) + ' Description (embed)' for i in range(1,5)])
+    embedding_cols.extend(['Job ' + str(i) + ' Organization (embed)' for i in range(1,5) if ((i != 4) and (i != 3))])
+
+    X_pd = X_pd.drop(columns=drop_cols)
     coef, intercept, r2, test_mse = linear_regression(X_pd, y_pd, embedding_cols)
     print(coef, intercept, r2, test_mse)
-    # r2 of -0.6675936077563671
+    # r2 of -0.6675936077563671 with these features:
+    # embedding_cols = ["Job 2 Title Enc", "Job 3 Title Enc", "Job 4 Title Enc", "Job 5 Title Enc", "Job 1 Description (embed)", "Job 2 Description (embed)", 
+                      #"Job 3 Description (embed)", "Job 4 Description (embed)", "Job 1 Organization (embed)", "Job 2 Organization (embed)", "Job 5 Organization (embed)"]
+
+    # r2 of -0.7158007371395885 with these features dropped:
+    # drop_cols = ["Job 1 Title Enc", "Job 6 Title Enc", "Job 5 Description (embed)", "Job 6 Description (embed)", "Job 3 Organization (embed)", 
+    #              "Job 4 Organization (embed)", "Job 6 Organization (embed)"]
     
 if __name__ == '__main__':
+    #print_important_features("models/linear_regression.json")
     lr_on_important_features()
