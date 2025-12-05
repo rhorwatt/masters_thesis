@@ -32,8 +32,11 @@ import json
 from datetime import datetime
 from gensim.models.keyedvectors import KeyedVectors
 from num2words import num2words
-from transformers import BertTokenizer, BertModel, AutoModelForMaskedLM, AutoTokenizer
+from transformers import BertTokenizer, BertModel
 import torch
+from datetime import timezone
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 class MiscDataHelpers:
     @staticmethod
@@ -1149,7 +1152,7 @@ class SchoolDataHelpers:
     
 class JobDataHelpers:
     @staticmethod
-    def clean_one_description(j_desc: str, token: AutoTokenizer, model: AutoModelForMaskedLM) -> List[float]:
+    def clean_one_description(j_desc: str, token: BertTokenizer, model: BertModel) -> List[float]:
         """
         This function cleans valid job descriptions and organizations by removing punctuation.
         """
@@ -1230,7 +1233,7 @@ class JobDataHelpers:
         :rtype: np.array
         """
         if j_title == 0:
-            return np.zeros(model.vector_size)
+            return np.zeros(model.vector_size, dtype=np.float32)
         
         words = str(j_title).split()
         cleaned = []
@@ -1243,7 +1246,7 @@ class JobDataHelpers:
 
         vecs = [model[w] for w in cleaned if w in model]
         if not vecs:
-            return np.zeros(model.vector_size)
+            return np.zeros(model.vector_size, dtype=np.float32)
         
         return np.mean(vecs, axis=0)
     
@@ -1364,19 +1367,20 @@ def load_application_data(file_path: str) -> None:
     df = SchoolDataHelpers.encode_school_job_country(df)
     df = SchoolDataHelpers.encode_degree_conferred(df, app_deadlines)
     df = JobDataHelpers.fill_na_dir_reports(df)
-    df = JobDataHelpers.encode_job_title(df)
     df = JobDataHelpers.encode_job_org(df)
     df.to_excel('data/cleaned/processed_admissions.xlsx', index=False)
     pass
 
 def clean_job_descriptions_looped(file_path: str) -> None:
     """
-    This function embeds the job descriptions and organizations to a numpy array and PyTorch tensor using the pre-trained BERT model.
+    This function embeds the job descriptions, titles, and organizations to a numpy array and PyTorch tensor using the pre-trained BERT model.
 
     :return: Dataframe with job descriptions embedded for specified rows
     :rtype: pd.DataFrame
     """
     df = pd.read_excel(file_path)
+    df = JobDataHelpers.encode_job_title(df)
+
     desc_cols = ['Job ' + str(i) + ' Description' for i in range(1,7)]
     desc_embed_cols = ['Job ' + str(i) + ' Description (embed)' for i in range(1,7)]
 
@@ -1414,11 +1418,23 @@ def clean_job_descriptions_looped(file_path: str) -> None:
 
     df = df.drop(columns = desc_cols)
     df = df.drop(columns = org_cols)
+    table = pa.Table.from_pandas(df)
+    pq.write_table(table, "data/cleaned/data.parquet")
+    pass
+
+def fix_timestamps(file_path: str) -> None:
+    school_create_cols = ['School ' + str(i) + ' Created' for i in range(1,7)]
+    df = pd.read_excel(file_path)
+    df = df.drop(columns=['App Term'])
+
+    for c in school_create_cols:
+        df[c] = df[c].apply(datetime.toordinal)
+        df[c] = df[c].fillna(0)
     df.to_excel(file_path, index=False)
     pass
 
 if __name__ == '__main__':
     load_application_data('data/raw/app_data/Fall20thru24_MSECEOnline_All.xlsx')
+    fix_timestamps('data/cleaned/processed_admissions.xlsx')
     clean_job_descriptions_looped('data/cleaned/processed_admissions.xlsx')
-
 
