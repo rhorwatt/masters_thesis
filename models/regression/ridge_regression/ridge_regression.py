@@ -4,17 +4,18 @@ import numpy as np
 from sklearn.metrics import r2_score, mean_squared_error
 import matplotlib.pyplot as plt
 import json
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import train_test_split
 from typing import List
 from collections import defaultdict
 
-def lasso_regression(X_pd: pd.DataFrame, y_pd: pd.DataFrame, embedding_cols: List[str], f_dropped: str) -> None:
-    with open('models/regression/lasso_regression/lasso_regression.json', 'r') as fp:
+def ridge_regression(X, y, cols, f_dropped: str):
+    with open('models/regression/ridge_regression/ridge_regression.json', 'r') as fp:
         alpha_dict = json.load(fp)
     fp.close()
+    #alpha_dict = defaultdict(dict)
 
-    alphas = [0.0001, 0.001, 0.01, 0.1, 1, 10, 100]
+    alphas = [0.0001, 0.001, 0.01, 0.1]
 
     y = y_pd.to_numpy()
     X = np.hstack([
@@ -28,7 +29,7 @@ def lasso_regression(X_pd: pd.DataFrame, y_pd: pd.DataFrame, embedding_cols: Lis
     )
 
     for a in alphas:
-        clf = Lasso(alpha=a)
+        clf = Ridge(alpha=a)
         clf.fit(X_train, y_train)
         y_pred = clf.predict(X_test)
         r2 = r2_score(y_test, y_pred)
@@ -38,8 +39,7 @@ def lasso_regression(X_pd: pd.DataFrame, y_pd: pd.DataFrame, embedding_cols: Lis
             'r2':r2,
             'test_mse': test_mse
         }
-    
-    with open('models/regression/lasso_regression/lasso_regression.json', 'w') as f:
+    with open('models/regression/ridge_regression/ridge_regression.json', 'w') as f:
         json.dump(alpha_dict, f, indent=2)
     f.close()
     pass
@@ -58,9 +58,9 @@ if __name__ == '__main__':
     embedding_cols.extend(['Job ' + str(i) + ' Description (embed)' for i in range(1,7)])
     embedding_cols.extend(['Job ' + str(i) + ' Organization (embed)' for i in range(1,7)])
 
-    lasso_regression(X_pd, y_pd, embedding_cols, "None")
+    #ridge_regression(X_pd, y_pd, embedding_cols, "None")
 
     for f in feature_cols:
         new_embeddings = [c for c in embedding_cols if c!=f]
         X_pd_new = X_pd.drop(columns=[f])
-        lasso_regression(X_pd_new, y_pd, new_embeddings, f)
+        ridge_regression(X_pd_new, y_pd, new_embeddings, f)
