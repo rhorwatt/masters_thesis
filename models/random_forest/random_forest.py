@@ -13,20 +13,20 @@ from typing import List
 from collections import defaultdict
 
 def random_regression(X_pd: pd.DataFrame, y_pd: pd.DataFrame, embedding_cols: List[str], f_dropped: str) -> None:
-    with open('models/random_forest/random_forest.json', 'r') as fp:
+    with open('models/random_forest/random_forest_drop.json', 'r') as fp:
         random_dict = json.load(fp)
     fp.close()
     #random_dict = defaultdict(dict)
 
     y = y_pd.to_numpy()
-    X = np.hstack([
-        np.vstack(X_pd[c].values)
-        for c in embedding_cols
-    ])
+    # X = np.hstack([
+    #     np.vstack(X_pd[c].values)
+    #     for c in embedding_cols
+    # ])
     y = y.reshape(-1, 1)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+        X_pd, y, test_size=0.2, random_state=42
     )
 
     # https://www.geeksforgeeks.org/machine-learning/performing-feature-selection-with-gridsearchcv-in-sklearn/
@@ -39,16 +39,18 @@ def random_regression(X_pd: pd.DataFrame, y_pd: pd.DataFrame, embedding_cols: Li
     recall = recall_score(y_test, y_pred)
     f1 = f1_score(y_test, y_pred)
     test_mse = mean_squared_error(y_test, y_pred)
+    auc = roc_auc_score(y_test, y_pred)
 
     random_dict[str((f_dropped))] = {
         'accuracy': acc,
         'precision': precision,
         'recall': recall,
         'f1': f1,
-        'test_mse': test_mse
+        'test_mse': test_mse,
+        'roc': auc
     }
     
-    with open('models/random_forest/random_forest.json', 'w') as f:
+    with open('models/random_forest/random_forest_drop.json', 'w') as f:
         json.dump(random_dict, f, indent=2)
     f.close()
     pass
@@ -56,7 +58,7 @@ def random_regression(X_pd: pd.DataFrame, y_pd: pd.DataFrame, embedding_cols: Li
 if __name__ == '__main__':
     table = pq.read_table('data/cleaned/data.parquet')
     df = table.to_pandas()
-    df = df.drop(columns=['App ID', 'PUID', 'Enrolled (Binary)'])
+    df = df.drop(columns=['App ID', 'PUID', 'Enrolled (Binary)', 'Decision History', 'Continent'])
 
     y_pd = df['Admitted (Binary)']
     X_pd = df.drop(columns=['Admitted (Binary)'])
@@ -69,7 +71,9 @@ if __name__ == '__main__':
 
     #random_regression(X_pd, y_pd, embedding_cols, "None")
 
-    for f in feature_cols:
-        new_embeddings = [c for c in embedding_cols if c!=f]
-        X_pd_new = X_pd.drop(columns=[f])
-        random_regression(X_pd_new, y_pd, new_embeddings, f)
+    #X_pd = X_pd.drop(columns=[x for x in X_pd.columns.tolist() if x.startswith("School")])
+    X_pd = X_pd.drop(columns=[x for x in X_pd.columns.tolist() if x.startswith("Job")])
+    # for f in feature_cols:
+    #     new_embeddings = [c for c in embedding_cols if c!=f]
+    #     X_pd_new = X_pd.drop(columns=[f])
+    random_regression(X_pd, y_pd, embedding_cols, "Job")

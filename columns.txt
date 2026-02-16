@@ -1,0 +1,630 @@
+Age
+State
+Citizenship
+Program Choice
+Degree Objective
+ECE Area of Interest 1
+ECE Area of Interest 2
+School 1 Type
+School 1 Institution
+School 1 Major
+School 1 Degree
+School 1 Degree Conferred
+School 1 Confirmed
+School 1 GPA Converted
+School 1 Region
+School 1 Created
+School 1 Class Rank (Numeric)
+School 1 Class Size (Numeric)
+School #1 Number of Active Applications
+School 2 Type
+School 2 Institution
+School 2 Major
+School 2 Degree
+School 2 Degree Conferred
+School 2 Confirmed
+School 2 GPA Converted
+School 2 Region
+School 2 Created
+School 2 Class Rank (Numeric)
+School 2 Class Size (Numeric)
+School 3 Type
+School 3 Institution
+School 3 Major
+School 3 Degree
+School 3 Degree Conferred
+School 3 Confirmed
+School 3 GPA Converted
+School 3 Region
+School 3 Created
+School 3 Class Rank (Numeric)
+School 3 Class Size (Numeric)
+School 4 Type
+School 4 Institution
+School 4 Major
+School 4 Degree
+School 4 Degree Conferred
+School 4 Confirmed
+School 4 GPA Converted
+School 4 Region
+School 4 Created
+School 4 Class Rank (Numeric)
+School 4 Class Size (Numeric)
+School 5 Type
+School 5 Institution
+School 5 Major
+School 5 Degree
+School 5 Degree Conferred
+School 5 Confirmed
+School 5 GPA Converted
+School 5 Region
+School 5 Created
+School 5 Class Rank (Numeric)
+School 5 Class Size (Numeric)
+School 6 Type
+School 6 Institution
+School 6 Major
+School 6 Degree
+School 6 Degree Conferred
+School 6 Confirmed
+School 6 GPA Converted
+School 6 Region
+School 6 Created
+School 6 Class Rank (Numeric)
+School 6 Class Size (Numeric)
+Job 1 Region
+Job 1 Direct Reports
+Job 2 Region
+Job 2 Direct Reports
+Job 3 Region
+Job 3 Direct Reports
+Job 4 Region
+Job 4 Direct Reports
+Job 5 Region
+Job 5 Direct Reports
+Job 6 Region
+Job 6 Direct Reports
+in_midwest
+is_domestic
+app_income_tier
+app_hdi
+app_region
+Country_Australia
+Country_Bangladesh
+Country_Brazil
+Country_Canada
+Country_Cayman Islands
+Country_China
+Country_Ecuador
+Country_Egypt
+Country_Ethiopia
+Country_France
+Country_Germany
+Country_Ghana
+Country_Hong Kong S.A.R.
+Country_Iceland
+Country_India
+Country_Iran
+Country_Israel
+Country_Japan
+Country_Jordan
+Country_Kuwait
+Country_Mexico
+Country_Nepal
+Country_New Zealand
+Country_Nigeria
+Country_Pakistan
+Country_Panama
+Country_Portugal
+Country_Saudi Arabia
+Country_Slovenia
+Country_South Africa
+Country_South Korea
+Country_Spain
+Country_Taiwan
+Country_Turkey
+Country_United Arab Emirates
+Country_United Kingdom
+Country_United States
+Country_Vietnam
+Country_Zambia
+is_fall
+Purdue (Binary)
+School 1 Missing
+School 2 Missing
+School 3 Missing
+School 4 Missing
+School 5 Missing
+School 6 Missing
+School_1_Lang_Arabic
+School_1_Lang_Chinese
+School_1_Lang_English
+School_1_Lang_Farsi
+School_1_Lang_French
+School_1_Lang_Hebrew
+School_1_Lang_Icelandic
+School_1_Lang_Japanese
+School_1_Lang_Kannada
+School_1_Lang_Korean
+School_1_Lang_MISSING
+School_1_Lang_Portuguese
+School_1_Lang_Sinahalese
+School_1_Lang_Slovenian
+School_1_Lang_Spanish
+School_2_Lang_Chinese
+School_2_Lang_English
+School_2_Lang_Farsi
+School_2_Lang_French
+School_2_Lang_German
+School_2_Lang_Hebrew
+School_2_Lang_Japanese
+School_2_Lang_Korean
+School_2_Lang_MISSING
+School_2_Lang_Portuguese
+School_2_Lang_Spanish
+School_3_Lang_Chinese
+School_3_Lang_English
+School_3_Lang_Hebrew
+School_3_Lang_Kazakh
+School_3_Lang_Korean
+School_3_Lang_MISSING
+School_3_Lang_Persian
+School_3_Lang_Spanish
+School_4_Lang_Arabic
+School_4_Lang_Chinese
+School_4_Lang_English
+School_4_Lang_French
+School_4_Lang_MISSING
+School_4_Lang_Persian
+School_4_Lang_Portuguese
+School_5_Lang_English
+School_5_Lang_MISSING
+School_6_Lang_English
+School_6_Lang_MISSING
+School 1 Update
+School 2 Update
+School 3 Update
+School 4 Update
+School 5 Update
+School 6 Update
+School 1 Duration
+School 1 Recency
+Job 1 Duration
+Job 1 Recency
+School 2 Duration
+School 2 Recency
+Job 2 Duration
+Job 2 Recency
+School 3 Duration
+School 3 Recency
+Job 3 Duration
+Job 3 Recency
+School 4 Duration
+School 4 Recency
+Job 4 Duration
+Job 4 Recency
+School 5 Duration
+School 5 Recency
+Job 5 Duration
+Job 5 Recency
+School 6 Duration
+School 6 Recency
+Job 6 Duration
+Job 6 Recency
+School 1 Country_Australia
+School 1 Country_Austria
+School 1 Country_Bangladesh
+School 1 Country_Brazil
+School 1 Country_Canada
+School 1 Country_Chile
+School 1 Country_China
+School 1 Country_Colombia
+School 1 Country_Czech Republic
+School 1 Country_Ecuador
+School 1 Country_Egypt
+School 1 Country_Ethiopia
+School 1 Country_Finland
+School 1 Country_France
+School 1 Country_Germany
+School 1 Country_Ghana
+School 1 Country_Hong Kong S.A.R.
+School 1 Country_Iceland
+School 1 Country_India
+School 1 Country_Iran
+School 1 Country_Ireland
+School 1 Country_Israel
+School 1 Country_Japan
+School 1 Country_Jordan
+School 1 Country_Kuwait
+School 1 Country_MISSING
+School 1 Country_Mexico
+School 1 Country_Morocco
+School 1 Country_Nepal
+School 1 Country_Nigeria
+School 1 Country_Pakistan
+School 1 Country_Panama
+School 1 Country_Philippines
+School 1 Country_Saudi Arabia
+School 1 Country_Slovenia
+School 1 Country_South Africa
+School 1 Country_South Korea
+School 1 Country_Spain
+School 1 Country_Sri Lanka
+School 1 Country_Sudan
+School 1 Country_Taiwan
+School 1 Country_Tunisia
+School 1 Country_Turkey
+School 1 Country_United Arab Emirates
+School 1 Country_United Kingdom
+School 1 Country_United States
+School 1 Country_Venezuela
+Job 1 Country_Australia
+Job 1 Country_Brazil
+Job 1 Country_Canada
+Job 1 Country_Cayman Islands
+Job 1 Country_China
+Job 1 Country_Congo (Kinshasa)
+Job 1 Country_Czech Republic
+Job 1 Country_Ecuador
+Job 1 Country_Egypt
+Job 1 Country_Ethiopia
+Job 1 Country_France
+Job 1 Country_Germany
+Job 1 Country_Ghana
+Job 1 Country_Honduras
+Job 1 Country_Iceland
+Job 1 Country_India
+Job 1 Country_Ireland
+Job 1 Country_Israel
+Job 1 Country_Italy
+Job 1 Country_Japan
+Job 1 Country_Kazakhstan
+Job 1 Country_Kenya
+Job 1 Country_MISSING
+Job 1 Country_Mexico
+Job 1 Country_Morocco
+Job 1 Country_New Zealand
+Job 1 Country_Nigeria
+Job 1 Country_Pakistan
+Job 1 Country_Panama
+Job 1 Country_Portugal
+Job 1 Country_Saudi Arabia
+Job 1 Country_Singapore
+Job 1 Country_Slovenia
+Job 1 Country_South Africa
+Job 1 Country_South Korea
+Job 1 Country_Spain
+Job 1 Country_Sri Lanka
+Job 1 Country_Sudan
+Job 1 Country_Switzerland
+Job 1 Country_Taiwan
+Job 1 Country_Turkey
+Job 1 Country_United Arab Emirates
+Job 1 Country_United Kingdom
+Job 1 Country_United States
+Job 1 Country_Vietnam
+Job 1 Country_Zambia
+School 2 Country_Australia
+School 2 Country_Austria
+School 2 Country_Bangladesh
+School 2 Country_Belgium
+School 2 Country_Brazil
+School 2 Country_Cambodia
+School 2 Country_Canada
+School 2 Country_Chile
+School 2 Country_China
+School 2 Country_Colombia
+School 2 Country_Congo (Kinshasa)
+School 2 Country_Ecuador
+School 2 Country_Egypt
+School 2 Country_France
+School 2 Country_Germany
+School 2 Country_Ghana
+School 2 Country_Hong Kong S.A.R.
+School 2 Country_India
+School 2 Country_Iran
+School 2 Country_Ireland
+School 2 Country_Israel
+School 2 Country_Japan
+School 2 Country_Kuwait
+School 2 Country_Lebanon
+School 2 Country_MISSING
+School 2 Country_Mexico
+School 2 Country_Nigeria
+School 2 Country_Pakistan
+School 2 Country_Russia
+School 2 Country_Singapore
+School 2 Country_South Korea
+School 2 Country_Spain
+School 2 Country_Sudan
+School 2 Country_Taiwan
+School 2 Country_Tunisia
+School 2 Country_Turkey
+School 2 Country_United Arab Emirates
+School 2 Country_United Kingdom
+School 2 Country_United States
+Job 2 Country_Australia
+Job 2 Country_Brazil
+Job 2 Country_Canada
+Job 2 Country_Cayman Islands
+Job 2 Country_Chile
+Job 2 Country_China
+Job 2 Country_Colombia
+Job 2 Country_Congo (Kinshasa)
+Job 2 Country_Ecuador
+Job 2 Country_Egypt
+Job 2 Country_Ethiopia
+Job 2 Country_France
+Job 2 Country_Ghana
+Job 2 Country_Honduras
+Job 2 Country_Iceland
+Job 2 Country_India
+Job 2 Country_Iran
+Job 2 Country_Ireland
+Job 2 Country_Israel
+Job 2 Country_Japan
+Job 2 Country_Kazakhstan
+Job 2 Country_Kenya
+Job 2 Country_Kuwait
+Job 2 Country_Lebanon
+Job 2 Country_MISSING
+Job 2 Country_Malaysia
+Job 2 Country_Mexico
+Job 2 Country_Morocco
+Job 2 Country_Nepal
+Job 2 Country_New Zealand
+Job 2 Country_Nigeria
+Job 2 Country_Pakistan
+Job 2 Country_Panama
+Job 2 Country_Philippines
+Job 2 Country_Saudi Arabia
+Job 2 Country_Singapore
+Job 2 Country_Slovenia
+Job 2 Country_South Africa
+Job 2 Country_South Korea
+Job 2 Country_Spain
+Job 2 Country_Sudan
+Job 2 Country_Switzerland
+Job 2 Country_Taiwan
+Job 2 Country_Tunisia
+Job 2 Country_Turkey
+Job 2 Country_United Arab Emirates
+Job 2 Country_United Kingdom
+Job 2 Country_United States
+Job 2 Country_Venezuela
+Job 2 Country_Zambia
+School 3 Country_Australia
+School 3 Country_Canada
+School 3 Country_Chile
+School 3 Country_China
+School 3 Country_Costa Rica
+School 3 Country_Germany
+School 3 Country_Hong Kong S.A.R.
+School 3 Country_India
+School 3 Country_Iran
+School 3 Country_Ireland
+School 3 Country_Israel
+School 3 Country_Kazakhstan
+School 3 Country_Kenya
+School 3 Country_MISSING
+School 3 Country_Mexico
+School 3 Country_Pakistan
+School 3 Country_South Korea
+School 3 Country_Spain
+School 3 Country_Sri Lanka
+School 3 Country_Sudan
+School 3 Country_Taiwan
+School 3 Country_United Kingdom
+School 3 Country_United States
+School 3 Country_Zambia
+Job 3 Country_Australia
+Job 3 Country_Bangladesh
+Job 3 Country_Bolivia
+Job 3 Country_Brazil
+Job 3 Country_Canada
+Job 3 Country_Chile
+Job 3 Country_China
+Job 3 Country_Congo (Kinshasa)
+Job 3 Country_Ecuador
+Job 3 Country_Egypt
+Job 3 Country_Ethiopia
+Job 3 Country_France
+Job 3 Country_Germany
+Job 3 Country_Ghana
+Job 3 Country_Hong Kong S.A.R.
+Job 3 Country_India
+Job 3 Country_Israel
+Job 3 Country_Japan
+Job 3 Country_Jordan
+Job 3 Country_Lebanon
+Job 3 Country_MISSING
+Job 3 Country_Mexico
+Job 3 Country_Nigeria
+Job 3 Country_Pakistan
+Job 3 Country_Philippines
+Job 3 Country_Saudi Arabia
+Job 3 Country_Singapore
+Job 3 Country_Slovenia
+Job 3 Country_South Africa
+Job 3 Country_South Korea
+Job 3 Country_Spain
+Job 3 Country_Switzerland
+Job 3 Country_Taiwan
+Job 3 Country_Tunisia
+Job 3 Country_Turkey
+Job 3 Country_United Arab Emirates
+Job 3 Country_United States
+Job 3 Country_Zambia
+School 4 Country_Brazil
+School 4 Country_China
+School 4 Country_Ethiopia
+School 4 Country_France
+School 4 Country_Hong Kong S.A.R.
+School 4 Country_India
+School 4 Country_Iran
+School 4 Country_MISSING
+School 4 Country_Mexico
+School 4 Country_Netherlands
+School 4 Country_Philippines
+School 4 Country_Taiwan
+School 4 Country_United Arab Emirates
+School 4 Country_United States
+Job 4 Country_Australia
+Job 4 Country_Bangladesh
+Job 4 Country_Brazil
+Job 4 Country_Cambodia
+Job 4 Country_Canada
+Job 4 Country_Chile
+Job 4 Country_China
+Job 4 Country_Ecuador
+Job 4 Country_Egypt
+Job 4 Country_Ethiopia
+Job 4 Country_Germany
+Job 4 Country_Ghana
+Job 4 Country_Hong Kong S.A.R.
+Job 4 Country_India
+Job 4 Country_Iran
+Job 4 Country_Israel
+Job 4 Country_Japan
+Job 4 Country_Jordan
+Job 4 Country_Kenya
+Job 4 Country_Kuwait
+Job 4 Country_MISSING
+Job 4 Country_Mexico
+Job 4 Country_Nigeria
+Job 4 Country_Pakistan
+Job 4 Country_Philippines
+Job 4 Country_Portugal
+Job 4 Country_Saudi Arabia
+Job 4 Country_Singapore
+Job 4 Country_South Korea
+Job 4 Country_Spain
+Job 4 Country_Sri Lanka
+Job 4 Country_Taiwan
+Job 4 Country_Trinidad and Tobago
+Job 4 Country_Turkey
+Job 4 Country_United Kingdom
+Job 4 Country_United States
+Job 4 Country_Zambia
+School 5 Country_Ethiopia
+School 5 Country_Hong Kong S.A.R.
+School 5 Country_Iran
+School 5 Country_MISSING
+School 5 Country_Netherlands
+School 5 Country_Sri Lanka
+School 5 Country_United States
+Job 5 Country_Australia
+Job 5 Country_Bangladesh
+Job 5 Country_Brazil
+Job 5 Country_Canada
+Job 5 Country_China
+Job 5 Country_Colombia
+Job 5 Country_Ecuador
+Job 5 Country_Ethiopia
+Job 5 Country_Germany
+Job 5 Country_Hong Kong S.A.R.
+Job 5 Country_India
+Job 5 Country_MISSING
+Job 5 Country_Mexico
+Job 5 Country_Nigeria
+Job 5 Country_Pakistan
+Job 5 Country_Philippines
+Job 5 Country_Portugal
+Job 5 Country_South Korea
+Job 5 Country_Spain
+Job 5 Country_Sri Lanka
+Job 5 Country_Syria
+Job 5 Country_Taiwan
+Job 5 Country_Trinidad and Tobago
+Job 5 Country_Turkey
+Job 5 Country_Uganda
+Job 5 Country_United States
+Job 5 Country_Zambia
+School 6 Country_MISSING
+School 6 Country_United States
+School 6 Country_Zambia
+Job 6 Country_Australia
+Job 6 Country_Austria
+Job 6 Country_Brazil
+Job 6 Country_Canada
+Job 6 Country_China
+Job 6 Country_Colombia
+Job 6 Country_Ecuador
+Job 6 Country_Ethiopia
+Job 6 Country_MISSING
+Job 6 Country_Mexico
+Job 6 Country_Pakistan
+Job 6 Country_Philippines
+Job 6 Country_South Korea
+Job 6 Country_Spain
+Job 6 Country_Sri Lanka
+Job 6 Country_Uganda
+Job 6 Country_United States
+Job 6 Country_Zambia
+School 1 Country HDI
+School 1 Country Income
+School 1 Country Region
+Job 1 Country HDI
+Job 1 Country Income
+Job 1 Country Region
+School 2 Country HDI
+School 2 Country Income
+School 2 Country Region
+Job 2 Country HDI
+Job 2 Country Income
+Job 2 Country Region
+School 3 Country HDI
+School 3 Country Income
+School 3 Country Region
+Job 3 Country HDI
+Job 3 Country Income
+Job 3 Country Region
+School 4 Country HDI
+School 4 Country Income
+School 4 Country Region
+Job 4 Country HDI
+Job 4 Country Income
+Job 4 Country Region
+School 5 Country HDI
+School 5 Country Income
+School 5 Country Region
+Job 5 Country HDI
+Job 5 Country Income
+Job 5 Country Region
+School 6 Country HDI
+School 6 Country Income
+School 6 Country Region
+Job 6 Country HDI
+Job 6 Country Income
+Job 6 Country Region
+School 1 Degree Conferred (Binary)
+School 2 Degree Conferred (Binary)
+School 3 Degree Conferred (Binary)
+School 4 Degree Conferred (Binary)
+School 5 Degree Conferred (Binary)
+School 6 Degree Conferred (Binary)
+Purdue Internal
+Job 1 Missing
+Job 2 Missing
+Job 3 Missing
+Job 4 Missing
+Job 5 Missing
+Job 6 Missing
+Job 1 Title Enc
+Job 2 Title Enc
+Job 3 Title Enc
+Job 4 Title Enc
+Job 5 Title Enc
+Job 6 Title Enc
+Job 1 Description (embed)
+Job 2 Description (embed)
+Job 3 Description (embed)
+Job 4 Description (embed)
+Job 5 Description (embed)
+Job 6 Description (embed)
+Job 1 Organization (embed)
+Job 2 Organization (embed)
+Job 3 Organization (embed)
+Job 4 Organization (embed)
+Job 5 Organization (embed)
+Job 6 Organization (embed)
