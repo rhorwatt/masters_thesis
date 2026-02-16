@@ -30,7 +30,11 @@ class NeuralNetwork(torch.nn.Module):
         self.linear_relu_stack = torch.nn.Sequential(
             torch.nn.Linear(feature_size, embed_dim),
             torch.nn.ReLU(),
-            torch.nn.Linear(embed_dim, 128),
+            nn.BatchNorm1d(embed_dim),
+            nn.Dropout(0.3),
+            torch.nn.Linear(embed_dim, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 128),
             torch.nn.ReLU(),
             torch.nn.Linear(128, num_classes),
         )
@@ -93,14 +97,14 @@ if __name__ == '__main__':
     train_dataloader = DataLoader(train_data, batch_size=32)
     test_dataloader = DataLoader(test_data, batch_size=32)
 
-    model = NeuralNetwork(11016, 128, 2)
+    model = NeuralNetwork(11016, 512, 2)
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    num_epochs = 3
+    num_epochs = 100
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0
@@ -125,14 +129,14 @@ if __name__ == '__main__':
     with torch.no_grad():
         for input, labels in test_dataloader:
             outputs = model(input)
-            probs = torch.sigmoid(outputs)
-            probs = torch.argmax(probs, dim=1)
+            probs = torch.softmax(outputs, dim=1)[:, 1]
             all_probs.append(probs)
             all_targets.append(labels)
-    y_score = torch.cat(all_probs).cpu().numpy()
-    y_true = torch.cat(all_targets).cpu().numpy()
+    y_score = torch.cat(all_probs).view(-1).cpu().numpy()
+    y_true = torch.cat(all_targets).view(-1).cpu().numpy()
 
+    preds = (y_score >= 0.5).astype(int)
     auc = roc_auc_score(y_true, y_score)
-    accuracy = accuracy_score(y_true, y_score)
+    accuracy = accuracy_score(y_true, preds)
     print(f"Test Accuracy: {accuracy:.4f}")
     print(f"ROC Score: {auc:.4f}")
