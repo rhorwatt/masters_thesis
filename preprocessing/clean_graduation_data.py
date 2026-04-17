@@ -1418,7 +1418,6 @@ def clean_job_descriptions_looped(file_path: str) -> None:
 
     df = df.drop(columns = desc_cols)
     df = df.drop(columns = org_cols)
-    df['is_dropout'] = df['is_dropout'].astype(int)
     table = pa.Table.from_pandas(df)
     pq.write_table(table, "data/cleaned/data.parquet")
     pass
@@ -1434,18 +1433,8 @@ def fix_timestamps(file_path: str) -> None:
     df.to_excel(file_path, index=False)
     pass
 
-def acquire_graduation_date(file_path: str, file_path2: str) -> None:
-    admissions_df = pd.read_excel(file_path)
-    degrees_df = pd.read_excel(file_path2)
-    degrees_df = degrees_df.drop(columns=['Degree Status', 'Degree Code', 'Degree', 'College', 'Program Code'])
-    admissions_df = admissions_df.rename(columns={"App - Official PUID": "PUID"})
-    graduated_puids = set(degrees_df['PUID'])
-    admissions_df['is_dropout'] = ~admissions_df['PUID'].isin(graduated_puids)
-    admissions_df.to_excel(file_path, index=False)
-
 if __name__ == '__main__':
     load_application_data('data/raw/app_data/Fall20thru24_MSECEOnline_All.xlsx')
     fix_timestamps('data/cleaned/processed_admissions.xlsx')
-    acquire_graduation_date('data/cleaned/processed_admissions.xlsx', 'data/raw/degrees/PendingAndAwardedDegrees_F20thruSp24_2025.09.24.xlsx')
     clean_job_descriptions_looped('data/cleaned/processed_admissions.xlsx')
 

@@ -1,0 +1,145 @@
+Program Choice                            -2.486330e-01
+School 1 Major                            -1.932538e-01
+Age                                       -1.794925e-01
+app_income_tier                           -1.245582e-01
+School 2 Institution                      -1.228661e-01
+app_hdi                                   -1.161334e-01
+School 2 Degree Conferred                 -1.057284e-01
+School 2 Degree Conferred (Binary)        -1.050942e-01
+Job 3 Direct Reports                      -1.012874e-01
+School 2 Created                          -9.954680e-02
+School 1 Created                          -9.914284e-02
+School 2 Degree                           -9.388129e-02
+School 1 Type                             -9.239623e-02
+School 3 Degree                           -9.164559e-02
+School 3 Major                            -9.162642e-02
+Country                                   -9.147053e-02
+School 3 Degree Conferred                 -9.020109e-02
+App Term                                  -8.831524e-02
+School 2 Country                          -8.661837e-02
+is_domestic                               -8.635059e-02
+School 1 Degree Conferred                 -8.404946e-02
+School 2 Type                             -7.434746e-02
+State                                     -7.385861e-02
+School 3 Type                             -7.314451e-02
+School 3 Degree Conferred (Binary)        -7.248481e-02
+School 3 Institution                      -7.215616e-02
+School 3 Region                           -7.093829e-02
+School 3 Country                          -7.015301e-02
+Job 4 Direct Reports                      -6.889890e-02
+School_1_Lang                             -6.677392e-02
+School 6 Degree                           -6.580319e-02
+School 3 GPA Converted                    -6.565398e-02
+School 6 Institution                      -6.461679e-02
+School 3 Created                          -6.448876e-02
+Job 3 Country                             -6.191828e-02
+School 6 Degree Conferred (Binary)        -5.945182e-02
+School 5 Region                           -5.945182e-02
+School 4 Country                          -5.906812e-02
+Job 1 Direct Reports                      -5.775187e-02
+School 6 Type                             -5.699259e-02
+Job 2 Region                              -5.693415e-02
+School 4 Type                             -5.449955e-02
+School 1 Region                           -5.171243e-02
+Job 3 Region                              -5.057063e-02
+School 2 Major                            -5.003075e-02
+Job 4 Country                             -4.756239e-02
+School 1 Class Size (Numeric)             -4.732260e-02
+School 2 GPA Converted                    -4.667686e-02
+School 5 Degree Conferred                 -4.611489e-02
+Job 1 Region                              -4.559467e-02
+Job 2 Direct Reports                      -4.497906e-02
+Job 6 Direct Reports                      -4.466473e-02
+School 6 Major                            -4.405112e-02
+School 6 GPA Converted                    -4.362029e-02
+Job 2 Country                             -4.282641e-02
+School 4 GPA Converted                    -4.232158e-02
+School 4 Major                            -4.220378e-02
+School 6 Created                          -4.017540e-02
+School 2 Update                           -3.927203e-02
+Job 5 Country                             -3.860976e-02
+School 4 Created                          -3.712261e-02
+School 2 Region                           -3.601756e-02
+School 5 Country                          -3.534497e-02
+School 5 Major                            -3.496271e-02
+School 5 Type                             -3.495430e-02
+School 6 Country                          -3.436867e-02
+School 4 Region                           -3.401210e-02
+School 5 Degree                           -3.395935e-02
+Degree Objective                          -3.313875e-02
+School 5 Created                          -3.231309e-02
+School 4 Degree Conferred                 -3.172832e-02
+School 5 Degree Conferred (Binary)        -3.132571e-02
+School 4 Degree Conferred (Binary)        -3.120130e-02
+School 5 Institution                      -3.004318e-02
+School 3 Update                           -2.982177e-02
+School 2 Confirmed                        -2.823349e-02
+School_5_Lang                             -2.699058e-02
+School 5 GPA Converted                    -2.638277e-02
+School 4 Degree                           -2.581190e-02
+School 6 Degree Conferred                 -2.551226e-02
+Job 6 Country                             -2.307648e-02
+Job 5 Direct Reports                      -2.234323e-02
+School 1 Institution                      -2.191624e-02
+School 4 Institution                      -2.117320e-02
+Job 3 Recency                             -1.974640e-02
+School_6_Lang                             -1.347940e-02
+Job 5 Recency                             -1.347940e-02
+Job 4 Recency                             -1.347940e-02
+School 2 Recency                          -1.347940e-02
+Job 4 Region                              -1.284277e-02
+School 6 Confirmed                        -1.258424e-02
+School 5 Confirmed                        -7.061007e-03
+School_4_Lang                             -5.990613e-03
+School 4 Update                           -2.664919e-03
+Job 1 Country                             -1.456857e-03
+ECE Area of Interest 1                    -1.224317e-03
+School 5 Class Size (Numeric)              2.690625e-16
+School 5 Class Rank (Numeric)              5.070834e-15
+School 3 Confirmed                         1.738282e-03
+School 4 Class Rank (Numeric)              2.104324e-03
+School 1 Duration                          4.670768e-03
+School 4 Confirmed                         4.914376e-03
+School 1 Degree                            6.500589e-03
+in_midwest                                 8.722953e-03
+School 4 Class Size (Numeric)              9.805897e-03
+School_3_Lang                              1.053820e-02
+School 5 Update                            1.136213e-02
+Job 5 Region                               1.219080e-02
+School 1 Country                           1.226421e-02
+School 6 Update                            1.350059e-02
+School #1 Number of Active Applications    1.429752e-02
+School_2_Lang                              1.541576e-02
+School 2 Class Rank (Numeric)              1.738322e-02
+School 2 Class Size (Numeric)              1.813060e-02
+School 3 Class Rank (Numeric)              1.937319e-02
+School 3 Class Size (Numeric)              2.077829e-02
+Job 2 Recency                              2.269404e-02
+ECE Area of Interest 2                     2.349853e-02
+School 5 Duration                          2.872959e-02
+School 1 Class Rank (Numeric)              3.108504e-02
+School 5 Missing                           3.236491e-02
+School 4 Missing                           3.716445e-02
+Job 6 Region                               3.823060e-02
+School 1 Update                            3.851585e-02
+School 6 Missing                           4.017640e-02
+School 1 Confirmed                         4.868749e-02
+School 4 Duration                          4.900029e-02
+Citizenship                                5.326195e-02
+Job 1 Recency                              5.546679e-02
+Purdue Internal                            5.778659e-02
+School 6 Duration                          6.245475e-02
+School 3 Missing                           6.452284e-02
+Job 1 Duration                             6.617518e-02
+School 1 Recency                           6.749265e-02
+Job 6 Duration                             6.848315e-02
+Job 5 Duration                             7.170781e-02
+School 3 Duration                          7.390228e-02
+School 1 Degree Conferred (Binary)         8.540347e-02
+School 2 Duration                          8.721500e-02
+School 2 Missing                           9.956011e-02
+Job 4 Duration                             1.049718e-01
+app_region                                 1.062918e-01
+Job 2 Duration                             1.334418e-01
+Job 3 Duration                             1.536534e-01
+School 1 GPA Converted                     3.254303e-01

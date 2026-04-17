@@ -53,17 +53,31 @@ def knn(X, y, cols, f_dropped: str):
     pass
 
 if __name__ == '__main__':
-    table = pq.read_table('data/cleaned/data.parquet')
-    df = table.to_pandas()
-    df = df.drop(columns=['App ID', 'PUID', 'Enrolled (Binary)', 'Decision History', 'Continent'])
-
-    y_pd = df['Admitted (Binary)']
-    X_pd = df.drop(columns=['Admitted (Binary)'])
-    X_pd = X_pd.fillna(0)
-    feature_cols = X_pd.columns.tolist()
-
     embedding_cols = ['Job ' + str(i) + ' Title Enc' for i in range(1,7)]
     embedding_cols.extend(['Job ' + str(i) + ' Description (embed)' for i in range(1,7)])
     embedding_cols.extend(['Job ' + str(i) + ' Organization (embed)' for i in range(1,7)])
+
+    table = pq.read_table('grouped_data.parquet')
+    df = table.to_pandas()
+    df = df.drop(columns=['App ID', 'PUID', 'Enrolled (Binary)'])
+    df = df.fillna(0)
+
+    table2 = pq.read_table('models/transformer/data.parquet')
+    df2 = table2.to_pandas()
+    df2 = df2.fillna(0)
+
+    application_terms = {
+            'Fall 2020'  : 1,
+            'Fall 2021'  : 2,
+            'Fall 2022'  : 3,
+            'Fall 2023'  : 4,
+            'Fall 2024'  : 5,
+            'Summer 2024': 6
+        }
+    
+    df['App Term'] = df2['App Term'].map(application_terms).astype(int)
+    y_pd = df['Admitted (Binary)']
+    X_pd = df.drop(columns=['Admitted (Binary)'])
+    X_pd = X_pd.fillna(0)
 
     knn(X_pd, y_pd, embedding_cols, "None")

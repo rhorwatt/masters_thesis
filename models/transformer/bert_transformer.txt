@@ -1,8 +1,32 @@
-AUC:       0.9471
-Accuracy:  0.8667
-F1:        0.9220
-Precision: 0.8701
-Recall:    0.9805
-Confusion Matrix:
-[[ 20  30]
- [  4 201]]
+All Features Included:
+ === Summary ===
+     auc  accuracy       f1  precision   recall
+0.967483  0.804781 0.887356   0.797521 1.000000
+0.973021  0.780876 0.875283   0.778226 1.000000
+0.971592  0.776892 0.873303   0.775100 1.000000
+0.959443  0.816733 0.892523   0.812766 0.989637
+0.964803  0.800797 0.885321   0.794239 1.000000
+
+ROC AUC:   mean=0.9673, std=0.0055
+Accuracy: mean=0.7960, std=0.0168
+F1: mean=0.8828, std=0.0082
+Precision: mean=0.7916, std=0.0153
+Recall: mean=0.9979, std=0.0046
+
+Correlation between GPA and Acceptance:
+Pearson r: 0.3254
+P-value:   0.0000
+
+With Decision History Dropped:
+ROC AUC:   mean=0.8087, std=0.0189
+Accuracy: mean=0.7705, std=0.0060
+F1: mean=0.8698, std=0.0027
+Precision: mean=0.7715, std=0.0063
+Recall: mean=0.9969, std=0.0046
+
+With all uncorrelated features dropped:
+ROC AUC:   mean=0.8064, std=0.0247
+Accuracy: mean=0.7697, std=0.0044
+F1: mean=0.8688, std=0.0035
+Precision: mean=0.7731, std=0.0059
+Recall: mean=0.9917, std=0.0158

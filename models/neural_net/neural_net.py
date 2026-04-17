@@ -89,14 +89,32 @@ if __name__ == '__main__':
     f = 2048
     b = 32
 
-    for seed in [0, 1, 2]:
+    for seed in [0, 1, 2, 3, 4]:
         set_seed(seed)
         #table = pq.read_table('data/cleaned/data.parquet')
         table = pq.read_table('grouped_data.parquet')
         df = table.to_pandas()
-        df = df.drop(columns=['App ID', 'PUID', 'Enrolled (Binary)'])
-        
+        df = df.drop(columns=['App ID', 'PUID', 'Enrolled (Binary)', 'Decision History', 'School 1 Missing',
+                              'School 3 Recency', 'School 4 Recency', 'School 5 Recency', 'School 6 Region',
+                              'School 6 Class Rank (Numeric)', 'School 6 Class Size (Numeric)', 'School 6 Recency',
+                              'Job 1 Missing', 'Job 2 Missing', 'Job 3 Missing', 'Job 4 Missing', 'Job 5 Missing',
+                              'Job 6 Missing', 'is_fall', 'Purdue (Binary)', 'Job 6 Recency'])
+        df = df.fillna(0)
 
+        table2 = pq.read_table('models/transformer/data.parquet')
+        df2 = table2.to_pandas()
+        df2 = df2.fillna(0)
+
+        application_terms = {
+                'Fall 2020'  : 1,
+                'Fall 2021'  : 2,
+                'Fall 2022'  : 3,
+                'Fall 2023'  : 4,
+                'Fall 2024'  : 5,
+                'Summer 2024': 6
+            }
+        
+        df['App Term'] = df2['App Term'].map(application_terms).astype(int)
         y_pd = df['Admitted (Binary)']
         X_pd = df.drop(columns=['Admitted (Binary)'])
         X_pd = X_pd.fillna(0)
