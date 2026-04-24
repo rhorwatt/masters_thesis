@@ -215,13 +215,68 @@ if __name__ == '__main__':
             cm        = confusion_matrix(all_labels, all_preds_binary)
 
             # Filter to admitted students only
-            admitted_mask = all_labels == 1  # admitted students in test set
+            admitted_mask = all_labels == 0  # admitted students in test set
 
             admitted_preds   = all_preds[admitted_mask]
 
+
+            # Load raw data for dropout labels
+            df_raw = pd.read_excel('data/cleaned/processed_admissions.xlsx')
+
+            # --- Get dropout labels aligned to test and train splits ---
+            train_raw = df_raw[df_raw['App Term'] != 'Fall 2024']
+            dropout_labels_train = train_raw['is_dropout'].astype(int).values
+
+            # --- Masks for admitted students ---
+            admitted_mask_train = y_train.numpy() == 1                     # from training data
+
+            all_train_preds = np.array(all_preds)
+
+            # --- Subset to admitted only ---
+
+            train_admitted_preds   = all_train_preds[admitted_mask_train]
+            train_admitted_dropout = dropout_labels_train[admitted_mask_train]
+
+            # --- Plot: 2 rows (test / train), 2 cols (scatter / histogram) ---
+            fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+            dropped_patch = mpatches.Patch(color='red',   label='Dropped Out')
+            stayed_patch  = mpatches.Patch(color='green', label='Did Not Drop Out')
+
+            for row, (preds, dropout, split_label) in enumerate([
+                (train_admitted_preds, train_admitted_dropout, "Train — All Other Semesters"),
+            ]):
+                sort_idx = np.argsort(preds)
+                colors   = ['red' if d == 1 else 'green' for d in dropout[sort_idx]]
+
+                # Scatter
+                axes[row, 0].scatter(range(len(preds)), preds[sort_idx],
+                                    c=colors, alpha=0.5, s=15)
+                axes[row, 0].axhline(0.5, color='black', linestyle='--')
+                axes[row, 0].set_xlabel("Admitted Students (sorted by predicted prob)")
+                axes[row, 0].set_ylabel("Predicted Admission Probability")
+                axes[row, 0].set_title(f"Admission Prob vs Dropout — {split_label}")
+                axes[row, 0].legend(handles=[dropped_patch, stayed_patch])
+
+                # Histogram
+                axes[row, 1].hist(preds[dropout == 0], bins=20, alpha=0.6, color='green', label='Did Not Drop Out')
+                axes[row, 1].hist(preds[dropout == 1], bins=20, alpha=0.6, color='red',   label='Dropped Out')
+                axes[row, 1].axvline(0.5, color='black', linestyle='--')
+                axes[row, 1].set_xlabel("Predicted Admission Probability")
+                axes[row, 1].set_ylabel("Count")
+                axes[row, 1].set_title(f"Probability Distribution by Dropout — {split_label}")
+                axes[row, 1].legend()
+
+            plt.tight_layout()
+            plt.savefig("admitted_vs_dropout_train_and_test.png", dpi=150)
+            plt.show()
+
+            print(f"\n--- Train (All Other Semesters) ---")
+            print(f"  Admitted: {admitted_mask_train.sum()}, Dropped: {train_admitted_dropout.sum()}, Retained: {(train_admitted_dropout==0).sum()}")
+
             # After splitting test from df
             df = pd.read_excel('data/cleaned/processed_admissions.xlsx')
-            test = df[df['App Term'] == 5]
+            test = df[df['App Term'] == 'Fall 2024']
             test_index = test.index  # integer positions 0..1275
 
             # Pull dropout labels aligned to the test set rows

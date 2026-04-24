@@ -1440,7 +1440,7 @@ def acquire_graduation_date(file_path: str, file_path2: str) -> None:
     degrees_df = degrees_df.drop(columns=['Degree Status', 'Degree Code', 'Degree', 'College', 'Program Code'])
     admissions_df = admissions_df.rename(columns={"App - Official PUID": "PUID"})
     graduated_puids = set(degrees_df['PUID'])
-    admissions_df['is_dropout'] = ~admissions_df['PUID'].isin(graduated_puids)
+    admissions_df['is_dropout'] = admissions_df['PUID'].isin(graduated_puids)
     admissions_df.to_excel(file_path, index=False)
 
 if __name__ == '__main__':
